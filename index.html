@@ -274,10 +274,19 @@ body{
 }
 .card-resize-handle:hover::after,.card-resize-handle.resizing::after{background:var(--accent);}
 /* 全画面スタイル */
-.radar-container:-webkit-full-screen{width:100%!important;height:100vh!important;}
-.radar-container:fullscreen{width:100%!important;height:100vh!important;}
-.radar-container:-webkit-full-screen #radarMap{height:100%!important;}
-.radar-container:fullscreen #radarMap{height:100%!important;}
+/* CSS全画面モード（ブラウザ内） */
+.widget-fullscreen{
+  position:fixed!important;inset:0!important;
+  width:100%!important;height:100vh!important;min-height:0!important;
+  z-index:9000!important;border-radius:0!important;
+}
+.widget-fullscreen>.card{
+  height:100vh!important;border-radius:0!important;
+  display:flex!important;flex-direction:column!important;overflow:hidden!important;
+}
+.widget-fullscreen .radar-body{flex:1!important;min-height:0!important;}
+.widget-fullscreen .radar-container{height:100%!important;}
+.widget-fullscreen #radarMap{height:100%!important;}
 
 
 /* ── CARD SIDE RESIZE HANDLE ── */
@@ -437,7 +446,8 @@ body{
             <button class="map-style-btn" id="msBtn3" onclick="setMapStyle(3)">🏔 地形</button>
             <span style="margin:0 3px;color:var(--border);line-height:1">│</span>
             <button class="map-style-btn lyr-btn" onclick="setLayerType('radar')">🌧 雨雲</button>
-            <button class="map-style-btn lyr-btn" onclick="setLayerType('satellite')">☁ 雲画像</button>
+            <button class="map-style-btn lyr-btn" onclick="setLayerType('ir')">☁ 赤外</button>
+            <button class="map-style-btn lyr-btn" onclick="setLayerType('visible')">🌍 可視光</button>
           </div>
           <div class="radar-body">
             <div class="radar-container">
@@ -941,7 +951,7 @@ const MAP_STYLES=[
   {label:'🏔 地形',  url:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', sub:'abc', attr:'&copy; OpenTopoMap (CC-BY-SA)'},
 ];
 let currentMapStyle=parseInt(localStorage.getItem('map_style')||'0');
-let currentLayerType=localStorage.getItem('layer_type')||'radar';
+let currentLayerType=(()=>{const t=localStorage.getItem('layer_type');return['radar','ir','visible'].includes(t)?t:'radar';})();
 let radarMap=null, baseTileLayer=null, radarLayer=null, satLayer=null;
 
 function setMapStyle(idx){
@@ -961,9 +971,8 @@ function setMapStyle(idx){
 function setLayerType(type){
   currentLayerType=type;
   localStorage.setItem('layer_type',type);
-  document.querySelectorAll('.lyr-btn').forEach((b,i)=>{
-    b.classList.toggle('active',(type==='radar'&&i===0)||(type==='satellite'&&i===1));
-  });
+  const types=['radar','ir','visible'];
+  document.querySelectorAll('.lyr-btn').forEach((b,i)=>b.classList.toggle('active',types[i]===type));
   const legend=document.querySelector('.radar-legend');
   if(legend) legend.style.display=type==='radar'?'':'none';
   if(!radarMap) return;
@@ -971,16 +980,29 @@ function setLayerType(type){
 }
 
 function toggleRadarFullscreen(){
-  const el=document.querySelector('.radar-container');
-  if(!document.fullscreenElement&&!document.webkitFullscreenElement){
-    (el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);
-  } else {
-    (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document);
+  const widget=document.getElementById('w-radar');
+  const isFS=widget.classList.toggle('widget-fullscreen');
+  document.body.style.overflow=isFS?'hidden':'';
+  setTimeout(()=>{if(radarMap) radarMap.invalidateSize();},150);
+  if(isFS){
+    const onKey=e=>{
+      if(e.key==='Escape'){
+        widget.classList.remove('widget-fullscreen');
+        document.body.style.overflow='';
+        if(radarMap) setTimeout(()=>radarMap.invalidateSize(),100);
+        document.removeEventListener('keydown',onKey);
+      }
+    };
+    document.addEventListener('keydown',onKey);
   }
-  setTimeout(()=>{if(radarMap) radarMap.invalidateSize();},300);
 }
-document.addEventListener('fullscreenchange',()=>{setTimeout(()=>{if(radarMap) radarMap.invalidateSize();},100);});
-document.addEventListener('webkitfullscreenchange',()=>{setTimeout(()=>{if(radarMap) radarMap.invalidateSize();},100);});
+
+// NASA GIBS タイル時刻計算（遅延分を引いて10分刻みに切り捨て）
+function gibsTime(delayMin){
+  const t=new Date(Date.now()-delayMin*60000);
+  t.setUTCMinutes(Math.floor(t.getUTCMinutes()/10)*10,0,0);
+  return t.toISOString().replace('.000Z','Z');
+}
 
 async function loadOverlay(){
   if(radarLayer){radarMap.removeLayer(radarLayer);radarLayer=null;}
@@ -988,24 +1010,36 @@ async function loadOverlay(){
   const pill=document.getElementById('radarTimePill');
   pill.textContent='読込中…';
   try{
-    const resp=await fetch('https://api.rainviewer.com/public/weather-maps.json');
-    const data=await resp.json();
     if(currentLayerType==='radar'){
+      const resp=await fetch('https://api.rainviewer.com/public/weather-maps.json');
+      const data=await resp.json();
       const frames=data.radar.past;
       if(!frames||!frames.length) throw new Error('no radar frames');
       const latest=frames[frames.length-1];
       const dt=new Date(latest.time*1000);
-      pill.textContent=`🌧 ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+      const hh=String(dt.getHours()).padStart(2,'0'), mm=String(dt.getMinutes()).padStart(2,'0');
+      pill.textContent=`🌧 ${hh}:${mm}`;
       radarLayer=L.tileLayer(`${data.host}${latest.path}/256/{z}/{x}/{y}/6/1_1.png`,
         {opacity:0.6,maxZoom:12,attribution:'RainViewer'}).addTo(radarMap);
-    } else {
-      const frames=data.satellite&&data.satellite.infrared;
-      if(!frames||!frames.length) throw new Error('no satellite frames');
-      const latest=frames[frames.length-1];
-      const dt=new Date(latest.time*1000);
-      pill.textContent=`☁ ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-      satLayer=L.tileLayer(`${data.host}${latest.path}/256/{z}/{x}/{y}/0/0.png`,
-        {opacity:0.8,maxZoom:12,attribution:'RainViewer'}).addTo(radarMap);
+
+    } else if(currentLayerType==='ir'){
+      // NASA GIBS — Himawari赤外（10分毎、約60分遅延）
+      const time=gibsTime(70);
+      const dt=new Date(Date.now()-70*60000);
+      const hh=String(dt.getHours()).padStart(2,'0'), mm=String(dt.getMinutes()).padStart(2,'0');
+      pill.textContent=`☁ ${hh}:${mm} (Himawari IR)`;
+      satLayer=L.tileLayer(
+        `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Himawari_AHI_Band13_Clean_Infrared/default/${time}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.jpg`,
+        {opacity:0.85,maxZoom:6,attribution:'NASA GIBS / Himawari-9'}).addTo(radarMap);
+
+    } else if(currentLayerType==='visible'){
+      // NASA GIBS — VIIRS可視光（日次、前日更新）
+      const yesterday=new Date(Date.now()-86400000);
+      const dateStr=yesterday.toISOString().slice(0,10);
+      pill.textContent=`🌍 ${dateStr} (VIIRS)`;
+      satLayer=L.tileLayer(
+        `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/${dateStr}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
+        {opacity:1,maxZoom:9,attribution:'NASA GIBS / VIIRS'}).addTo(radarMap);
     }
   }catch(e){
     pill.textContent='取得失敗';
@@ -1021,9 +1055,7 @@ async function loadRadar(){
     if(s.sub) opts.subdomains=s.sub;
     baseTileLayer=L.tileLayer(s.url,opts).addTo(radarMap);
     document.querySelectorAll('.map-style-btn:not(.lyr-btn)').forEach((b,i)=>b.classList.toggle('active',i===currentMapStyle));
-    document.querySelectorAll('.lyr-btn').forEach((b,i)=>{
-      b.classList.toggle('active',(currentLayerType==='radar'&&i===0)||(currentLayerType==='satellite'&&i===1));
-    });
+    {const types=['radar','ir','visible'];document.querySelectorAll('.lyr-btn').forEach((b,i)=>b.classList.toggle('active',types[i]===currentLayerType));}
     const legend=document.querySelector('.radar-legend');
     if(legend) legend.style.display=currentLayerType==='radar'?'':'none';
   }
