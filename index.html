@@ -68,18 +68,15 @@ body{
 
 /* ── GRID ── */
 .grid-area{flex:1;padding:6px 10px 20px;}
-.columns{display:flex;gap:4px;align-items:flex-start;}
-.column{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0;}
-@media(max-width:600px){
-  .columns{flex-direction:column;}
-  .column{width:100%;}
-}
+.columns{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;}
+.widget{flex:0 0 calc(50% - 6px);min-width:220px;}
+@media(max-width:600px){.widget{flex:0 0 100%!important;}}
 
 /* ── WIDGET ── */
 .widget{position:relative;cursor:default;touch-action:pan-y;}
 .widget.dragging{opacity:0.4;}
-.widget.drag-over-top{border-top:3px solid var(--accent);border-radius:3px 3px 0 0;}
-.widget.drag-over-bottom{border-bottom:3px solid var(--accent);}
+.widget.drag-over-left{border-left:3px solid var(--accent);border-radius:3px 0 0 3px;}
+.widget.drag-over-right{border-right:3px solid var(--accent);border-radius:0 3px 3px 0;}
 
 /* ── CARD ── */
 .card{background:var(--surface);border-radius:14px;border:1px solid var(--border);overflow:hidden;}
@@ -350,11 +347,8 @@ body{
 <div class="grid-area">
   <div class="columns" id="columnsRoot">
 
-    <!-- 左列 -->
-    <div class="column" id="col-0">
-
-      <!-- 天気ウィジェット -->
-      <div class="widget" id="w-weather" data-col="0" draggable="true">
+    <!-- 天気ウィジェット -->
+      <div class="widget" id="w-weather" draggable="true">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
@@ -385,7 +379,7 @@ body{
       </div>
 
       <!-- カレンダーウィジェット -->
-      <div class="widget" id="w-cal" data-col="0" draggable="true">
+      <div class="widget" id="w-cal" draggable="true">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
@@ -410,7 +404,7 @@ body{
       </div>
 
       <!-- 交通情報ウィジェット -->
-      <div class="widget" id="w-transport" data-col="0" draggable="true" style="display:none">
+      <div class="widget" id="w-transport" draggable="true" style="display:none">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
@@ -421,15 +415,8 @@ body{
         </div>
       </div>
 
-    </div><!-- /col-0 -->
-
-    <div class="col-resizer" id="colResizer" title="ドラッグで幅調整"></div>
-
-    <!-- 右列 -->
-    <div class="column" id="col-1">
-
-      <!-- 雨雲レーダーウィジェット -->
-      <div class="widget" id="w-radar" data-col="1" draggable="true">
+    <!-- 雨雲レーダーウィジェット -->
+      <div class="widget" id="w-radar" draggable="true">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
@@ -463,7 +450,6 @@ body{
         </div>
       </div>
 
-    </div><!-- /col-1 -->
 
   </div><!-- /columns -->
 </div><!-- /grid-area -->
@@ -1042,130 +1028,54 @@ function initCardResize(){
     handle.addEventListener('touchmove',e=>{onMove(e.touches[0].clientY);e.preventDefault();},{passive:false});
     handle.addEventListener('touchend',onEnd);
 
-    /* ── 横リサイズハンドル（カード端） ── */
-    const col=widget.closest('.column');
-    if(col){
-      const isLeft=col.id==='col-0';
+    /* ── 横リサイズハンドル（個別カード幅） ── */
+    {
       const hHandle=document.createElement('div');
-      hHandle.className='card-resize-h '+(isLeft?'right':'left');
+      hHandle.className='card-resize-h right';
       hHandle.title='ドラッグで幅変更';
       widget.appendChild(hHandle);
+      const cRoot=document.getElementById('columnsRoot');
+      let hResizing=false,hStartX=0,hStartW=0,hCW=0;
 
-      let hResizing=false,hStartX=0,hStartRatio=0;
-      const container=document.getElementById('columnsRoot');
+      function hSetWidth(clientX){
+        const newW=Math.max(hCW*0.2,hStartW+(clientX-hStartX));
+        const pct=Math.min(100,newW/hCW*100);
+        widget.style.flex=`0 0 ${pct>=99?'100%':'calc('+pct.toFixed(1)+'% - 6px)'}`;
+        if(radarMap&&widget.id==='w-radar') radarMap.invalidateSize();
+      }
+      function hSave(){
+        const pct=parseFloat((widget.getBoundingClientRect().width/cRoot.getBoundingClientRect().width*100).toFixed(1));
+        const widths=JSON.parse(localStorage.getItem('card_widths_v1')||'{}');
+        widths[widget.id]=pct;localStorage.setItem('card_widths_v1',JSON.stringify(widths));
+        if(radarMap&&widget.id==='w-radar') setTimeout(()=>radarMap.invalidateSize(),60);
+      }
 
       hHandle.addEventListener('mousedown',e=>{
         hResizing=true;hStartX=e.clientX;
-        const col0=document.getElementById('col-0');
-        hStartRatio=col0.getBoundingClientRect().width/container.getBoundingClientRect().width;
+        hStartW=widget.getBoundingClientRect().width;
+        hCW=cRoot.getBoundingClientRect().width;
         hHandle.classList.add('resizing');
-        document.body.style.cursor='ew-resize';
-        document.body.style.userSelect='none';
+        document.body.style.cursor='ew-resize';document.body.style.userSelect='none';
         e.preventDefault();e.stopPropagation();
       });
-      document.addEventListener('mousemove',e=>{
-        if(!hResizing) return;
-        const dx=e.clientX-hStartX;
-        const cw=container.getBoundingClientRect().width;
-        const delta=isLeft?(dx/cw):(-dx/cw);
-        const ratio=Math.max(0.15,Math.min(0.85,hStartRatio+delta));
-        applyColRatio(ratio);
-        if(radarMap) radarMap.invalidateSize();
-      });
+      document.addEventListener('mousemove',e=>{if(hResizing) hSetWidth(e.clientX);});
       document.addEventListener('mouseup',()=>{
         if(!hResizing) return;
         hResizing=false;hHandle.classList.remove('resizing');
-        document.body.style.cursor='';document.body.style.userSelect='';
-        saveColRatio();
-        if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
+        document.body.style.cursor='';document.body.style.userSelect='';hSave();
       });
       hHandle.addEventListener('touchstart',e=>{
         hResizing=true;hStartX=e.touches[0].clientX;
-        const col0=document.getElementById('col-0');
-        hStartRatio=col0.getBoundingClientRect().width/container.getBoundingClientRect().width;
+        hStartW=widget.getBoundingClientRect().width;
+        hCW=cRoot.getBoundingClientRect().width;
         hHandle.classList.add('resizing');e.stopPropagation();
       },{passive:true});
       hHandle.addEventListener('touchmove',e=>{
-        if(!hResizing) return;
-        const dx=e.touches[0].clientX-hStartX;
-        const cw=container.getBoundingClientRect().width;
-        const delta=isLeft?(dx/cw):(-dx/cw);
-        const ratio=Math.max(0.15,Math.min(0.85,hStartRatio+delta));
-        applyColRatio(ratio);
-        if(radarMap) radarMap.invalidateSize();
-        e.preventDefault();
+        if(hResizing){hSetWidth(e.touches[0].clientX);e.preventDefault();}
       },{passive:false});
-      hHandle.addEventListener('touchend',()=>{
-        if(!hResizing) return;
-        hResizing=false;hHandle.classList.remove('resizing');
-        saveColRatio();
-        if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
-      });
+      hHandle.addEventListener('touchend',()=>{if(hResizing){hResizing=false;hHandle.classList.remove('resizing');hSave();}});
     }
   });
-}
-
-/* ══ COLUMN RESIZE ══ */
-/* カード横幅リサイズで共用する列比率関数 */
-function applyColRatio(ratio){
-  const col0=document.getElementById('col-0');
-  const col1=document.getElementById('col-1');
-  const p0=(ratio*100).toFixed(1)+'%';
-  const p1=((1-ratio)*100).toFixed(1)+'%';
-  col0.style.flex=`0 0 calc(${p0} - 10px)`;
-  col1.style.flex=`0 0 calc(${p1} - 10px)`;
-}
-function saveColRatio(){
-  const col0=document.getElementById('col-0');
-  const container=document.getElementById('columnsRoot');
-  const w0=col0.getBoundingClientRect().width;
-  const ratio=(w0/container.getBoundingClientRect().width).toFixed(3);
-  localStorage.setItem('col_ratio',ratio);
-  return parseFloat(ratio);
-}
-
-function initColumnResize(){
-  const resizer=document.getElementById('colResizer');
-  if(!resizer) return;
-  const container=document.getElementById('columnsRoot');
-
-  // 保存済み比率を復元
-  const savedRatio=parseFloat(localStorage.getItem('col_ratio')||'0.5');
-  applyColRatio(savedRatio);
-
-  let isResizing=false;
-
-  function startResize(clientX){
-    isResizing=true;
-    resizer.classList.add('resizing');
-    document.body.style.cursor='col-resize';
-    document.body.style.userSelect='none';
-    document.body.style.webkitUserSelect='none';
-  }
-  function doResize(clientX){
-    if(!isResizing) return;
-    const rect=container.getBoundingClientRect();
-    const ratio=Math.max(0.2,Math.min(0.8,(clientX-rect.left)/rect.width));
-    applyColRatio(ratio);
-    if(radarMap) radarMap.invalidateSize();
-  }
-  function endResize(){
-    if(!isResizing) return;
-    isResizing=false;
-    resizer.classList.remove('resizing');
-    document.body.style.cursor='';
-    document.body.style.userSelect='';
-    document.body.style.webkitUserSelect='';
-    saveColRatio();
-    if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
-  }
-
-  resizer.addEventListener('mousedown',e=>{startResize(e.clientX);e.preventDefault();});
-  document.addEventListener('mousemove',e=>doResize(e.clientX));
-  document.addEventListener('mouseup',endResize);
-  resizer.addEventListener('touchstart',e=>{startResize(e.touches[0].clientX);},{passive:true});
-  resizer.addEventListener('touchmove',e=>{doResize(e.touches[0].clientX);e.preventDefault();},{passive:false});
-  resizer.addEventListener('touchend',endResize);
 }
 
 /* ══════════════════════════════════════
@@ -1177,7 +1087,6 @@ function initDragDrop(){
   const root=document.getElementById('columnsRoot');
 
   root.addEventListener('dragstart',e=>{
-    // ボタン・入力・リンク操作時はドラッグしない
     if(e.target.closest('button,input,a,select,label')) return;
     if(e.target.closest('.leaflet-container,.card-resize-handle,.card-resize-h')) return;
     const w=e.target.closest('.widget');
@@ -1196,8 +1105,8 @@ function initDragDrop(){
     if(!w||w===dragW) return;
     clearDragOver();
     const rect=w.getBoundingClientRect();
-    if(e.clientY<rect.top+rect.height/2) w.classList.add('drag-over-top');
-    else w.classList.add('drag-over-bottom');
+    if(e.clientX<rect.left+rect.width/2) w.classList.add('drag-over-left');
+    else w.classList.add('drag-over-right');
   });
   root.addEventListener('dragleave',e=>{
     if(!e.relatedTarget||!e.relatedTarget.closest('.widget')) clearDragOver();
@@ -1206,25 +1115,23 @@ function initDragDrop(){
     e.preventDefault();
     if(!dragW){clearDragOver();return;}
     const target=e.target.closest('.widget');
-    const col=e.target.closest('.column');
     if(target&&target!==dragW){
       const rect=target.getBoundingClientRect();
-      const before=e.clientY<rect.top+rect.height/2;
-      if(before) col.insertBefore(dragW,target);
-      else col.insertBefore(dragW,target.nextSibling);
-    } else if(col&&!target){
-      col.appendChild(dragW); // 空列エリアへのドロップ
+      const before=e.clientX<rect.left+rect.width/2;
+      if(before) root.insertBefore(dragW,target);
+      else root.insertBefore(dragW,target.nextSibling);
+    } else if(!target){
+      root.appendChild(dragW);
     } else {
       clearDragOver(); return;
     }
-    dragW.dataset.col=col.id==='col-0'?'0':'1';
     clearDragOver(); saveLayout();
     if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
   });
 
   function clearDragOver(){
     document.querySelectorAll('.widget').forEach(n=>{
-      n.classList.remove('drag-over-top','drag-over-bottom');
+      n.classList.remove('drag-over-left','drag-over-right');
     });
   }
 
@@ -1232,7 +1139,7 @@ function initDragDrop(){
   let tSrc=null,tClone=null,tStartX=0,tStartY=0,tTimer=null;
 
   root.addEventListener('touchstart',e=>{
-    if(e.target.closest('button,input,a,select,label,.card-resize-handle,.card-resize-h,.col-resizer')) return;
+    if(e.target.closest('button,input,a,select,label,.card-resize-handle,.card-resize-h')) return;
     const h=e.target.closest('.card-header');
     const w=h&&h.closest('.widget');
     if(!w) return;
@@ -1264,11 +1171,11 @@ function initDragDrop(){
     const el=document.elementFromPoint(t.clientX,t.clientY);
     tClone.style.display='';
     const over=el&&el.closest('.widget');
-    document.querySelectorAll('.widget').forEach(n=>n.classList.remove('drag-over-top','drag-over-bottom'));
+    document.querySelectorAll('.widget').forEach(n=>n.classList.remove('drag-over-left','drag-over-right'));
     if(over&&over!==tSrc){
       const rect=over.getBoundingClientRect();
-      if(t.clientY<rect.top+rect.height/2) over.classList.add('drag-over-top');
-      else over.classList.add('drag-over-bottom');
+      if(t.clientX<rect.left+rect.width/2) over.classList.add('drag-over-left');
+      else over.classList.add('drag-over-right');
     }
   },{passive:false});
 
@@ -1283,44 +1190,48 @@ function initDragDrop(){
       const target=el&&el.closest('.widget');
       if(target&&target!==tSrc){
         const rect=target.getBoundingClientRect();
-        const before=t.clientY<rect.top+rect.height/2;
-        const col=target.closest('.column');
-        if(before) col.insertBefore(tSrc,target);
-        else col.insertBefore(tSrc,target.nextSibling);
-        tSrc.dataset.col=col.id==='col-0'?'0':'1';
+        const before=t.clientX<rect.left+rect.width/2;
+        if(before) root.insertBefore(tSrc,target);
+        else root.insertBefore(tSrc,target.nextSibling);
         saveLayout();
         if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
       }
       tSrc.style.opacity='';
       tClone.remove(); tClone=null;
-      document.querySelectorAll('.widget').forEach(n=>n.classList.remove('drag-over-top','drag-over-bottom'));
+      document.querySelectorAll('.widget').forEach(n=>n.classList.remove('drag-over-left','drag-over-right'));
     }
     tSrc=null;
   });
 }
 
 /* ── レイアウト保存/復元 ── */
-const LAYOUT_KEY='dashboard_layout_v3';
+const LAYOUT_KEY='dashboard_layout_v4';
 function saveLayout(){
+  const root=document.getElementById('columnsRoot');
   const layout=[];
-  document.querySelectorAll('.column').forEach((col,ci)=>{
-    col.querySelectorAll('.widget').forEach(w=>{
-      layout.push({id:w.id,col:ci,hidden:w.style.display==='none'});
-    });
+  root.querySelectorAll(':scope > .widget').forEach(w=>{
+    layout.push({id:w.id,hidden:w.style.display==='none',flex:w.style.flex||''});
   });
   localStorage.setItem(LAYOUT_KEY,JSON.stringify(layout));
 }
 function restoreLayout(){
+  const root=document.getElementById('columnsRoot');
+  // カード個別幅を復元
+  const widths=JSON.parse(localStorage.getItem('card_widths_v1')||'{}');
+  Object.entries(widths).forEach(([id,pct])=>{
+    const el=document.getElementById(id);
+    if(el) el.style.flex=`0 0 ${pct>=99?'100%':'calc('+parseFloat(pct).toFixed(1)+'% - 6px)'}`;
+  });
   const saved=localStorage.getItem(LAYOUT_KEY);
   if(!saved) return;
   try{
     const layout=JSON.parse(saved);
-    const cols=[document.getElementById('col-0'),document.getElementById('col-1')];
-    layout.forEach(({id,col,hidden})=>{
+    layout.forEach(({id,hidden,flex})=>{
       const el=document.getElementById(id);
       if(!el) return;
-      cols[col]?.appendChild(el);
+      root.appendChild(el);
       if(!hidden) el.style.display='';
+      if(flex&&!widths[id]) el.style.flex=flex;
     });
   }catch(e){}
 }
@@ -1343,7 +1254,6 @@ async function init(){
   updateLocUI();
   updateCalDateLabel();
   initCardResize();
-  initColumnResize();
   initDragDrop();
   await Promise.all([loadCalendar(), loadWeather(), loadRadar()]);
   updateFooter();
