@@ -263,6 +263,25 @@ body{
 .legend-swatch{width:14px;height:7px;border-radius:2px;}
 
 
+
+/* ── CARD RESIZE HANDLE ── */
+.widget{position:relative;}
+.card-resize-handle{
+  position:absolute;bottom:0;left:0;right:0;height:14px;
+  cursor:s-resize;display:flex;align-items:center;justify-content:center;
+  z-index:5;border-radius:0 0 14px 14px;
+}
+.card-resize-handle::after{
+  content:'';width:32px;height:3px;background:var(--border);border-radius:2px;
+  transition:background 0.15s;
+}
+.card-resize-handle:hover::after,.card-resize-handle.resizing::after{background:var(--accent);}
+/* 全画面スタイル */
+.radar-container:-webkit-full-screen{width:100%!important;height:100vh!important;}
+.radar-container:fullscreen{width:100%!important;height:100vh!important;}
+.radar-container:-webkit-full-screen #radarMap{height:100%!important;}
+.radar-container:fullscreen #radarMap{height:100%!important;}
+
 /* ── COL RESIZER ── */
 .col-resizer{
   width:16px;cursor:col-resize;position:relative;flex-shrink:0;
@@ -363,6 +382,7 @@ body{
               <button class="cal-nav-btn" onclick="calNav(-1)" title="前の日">◀</button>
               <span class="cal-date-label" id="calDateLabel" onclick="calNavToday()">--</span>
               <button class="cal-nav-btn" onclick="calNav(1)" title="次の日">▶</button>
+              <button class="cal-nav-btn" onclick="calNavToday()" title="今日" style="width:auto;padding:0 7px;font-size:10px;font-weight:600;">今日</button>
             </div>
             <!-- カレンダー選択 -->
             <button class="cal-settings-btn" id="calSettingsBtn" onclick="toggleCalSettings()" title="カレンダー選択">☰</button>
@@ -401,12 +421,16 @@ body{
             <span class="drag-handle">⠿</span>
             <span class="card-icon">🛰</span>
             <span class="card-title">雨雲レーダー</span>
+            <button class="cal-nav-btn" onclick="toggleRadarFullscreen()" title="全画面" style="margin-left:auto;font-size:13px;">⛶</button>
           </div>
           <div class="map-style-row">
             <button class="map-style-btn" id="msBtn0" onclick="setMapStyle(0)">🗺 地図</button>
             <button class="map-style-btn" id="msBtn1" onclick="setMapStyle(1)">🛰 衛星</button>
             <button class="map-style-btn" id="msBtn2" onclick="setMapStyle(2)">🌑 ダーク</button>
             <button class="map-style-btn" id="msBtn3" onclick="setMapStyle(3)">🏔 地形</button>
+            <span style="margin:0 3px;color:var(--border);line-height:1">│</span>
+            <button class="map-style-btn lyr-btn" onclick="setLayerType('radar')">🌧 雨雲</button>
+            <button class="map-style-btn lyr-btn" onclick="setLayerType('satellite')">☁ 雲画像</button>
           </div>
           <div class="radar-body">
             <div class="radar-container">
@@ -864,12 +888,13 @@ const MAP_STYLES=[
   {label:'🏔 地形',  url:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', sub:'abc', attr:'&copy; OpenTopoMap (CC-BY-SA)'},
 ];
 let currentMapStyle=parseInt(localStorage.getItem('map_style')||'0');
-let radarMap=null, baseTileLayer=null, radarLayer=null;
+let currentLayerType=localStorage.getItem('layer_type')||'radar';
+let radarMap=null, baseTileLayer=null, radarLayer=null, satLayer=null;
 
 function setMapStyle(idx){
   currentMapStyle=idx;
   localStorage.setItem('map_style',String(idx));
-  document.querySelectorAll('.map-style-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+  document.querySelectorAll('.map-style-btn:not(.lyr-btn)').forEach((b,i)=>b.classList.toggle('active',i===idx));
   if(!radarMap) return;
   if(baseTileLayer) radarMap.removeLayer(baseTileLayer);
   const s=MAP_STYLES[idx];
@@ -877,6 +902,62 @@ function setMapStyle(idx){
   if(s.sub) opts.subdomains=s.sub;
   baseTileLayer=L.tileLayer(s.url,opts).addTo(radarMap);
   if(radarLayer){radarMap.removeLayer(radarLayer);radarMap.addLayer(radarLayer);}
+  if(satLayer){radarMap.removeLayer(satLayer);radarMap.addLayer(satLayer);}
+}
+
+function setLayerType(type){
+  currentLayerType=type;
+  localStorage.setItem('layer_type',type);
+  document.querySelectorAll('.lyr-btn').forEach((b,i)=>{
+    b.classList.toggle('active',(type==='radar'&&i===0)||(type==='satellite'&&i===1));
+  });
+  const legend=document.querySelector('.radar-legend');
+  if(legend) legend.style.display=type==='radar'?'':'none';
+  if(!radarMap) return;
+  loadOverlay();
+}
+
+function toggleRadarFullscreen(){
+  const el=document.querySelector('.radar-container');
+  if(!document.fullscreenElement&&!document.webkitFullscreenElement){
+    (el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);
+  } else {
+    (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document);
+  }
+  setTimeout(()=>{if(radarMap) radarMap.invalidateSize();},300);
+}
+document.addEventListener('fullscreenchange',()=>{setTimeout(()=>{if(radarMap) radarMap.invalidateSize();},100);});
+document.addEventListener('webkitfullscreenchange',()=>{setTimeout(()=>{if(radarMap) radarMap.invalidateSize();},100);});
+
+async function loadOverlay(){
+  if(radarLayer){radarMap.removeLayer(radarLayer);radarLayer=null;}
+  if(satLayer){radarMap.removeLayer(satLayer);satLayer=null;}
+  const pill=document.getElementById('radarTimePill');
+  pill.textContent='読込中…';
+  try{
+    const resp=await fetch('https://api.rainviewer.com/public/weather-maps.json');
+    const data=await resp.json();
+    if(currentLayerType==='radar'){
+      const frames=data.radar.past;
+      if(!frames||!frames.length) throw new Error('no radar frames');
+      const latest=frames[frames.length-1];
+      const dt=new Date(latest.time*1000);
+      pill.textContent=`🌧 ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+      radarLayer=L.tileLayer(`${data.host}${latest.path}/256/{z}/{x}/{y}/6/1_1.png`,
+        {opacity:0.6,maxZoom:12,attribution:'RainViewer'}).addTo(radarMap);
+    } else {
+      const frames=data.satellite&&data.satellite.infrared;
+      if(!frames||!frames.length) throw new Error('no satellite frames');
+      const latest=frames[frames.length-1];
+      const dt=new Date(latest.time*1000);
+      pill.textContent=`☁ ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+      satLayer=L.tileLayer(`${data.host}${latest.path}/256/{z}/{x}/{y}/0/0.png`,
+        {opacity:0.8,maxZoom:12,attribution:'RainViewer'}).addTo(radarMap);
+    }
+  }catch(e){
+    pill.textContent='取得失敗';
+    console.error('Overlay error:',e);
+  }
 }
 
 async function loadRadar(){
@@ -886,26 +967,67 @@ async function loadRadar(){
     const opts={attribution:s.attr,maxZoom:12};
     if(s.sub) opts.subdomains=s.sub;
     baseTileLayer=L.tileLayer(s.url,opts).addTo(radarMap);
-    document.querySelectorAll('.map-style-btn').forEach((b,i)=>b.classList.toggle('active',i===currentMapStyle));
+    document.querySelectorAll('.map-style-btn:not(.lyr-btn)').forEach((b,i)=>b.classList.toggle('active',i===currentMapStyle));
+    document.querySelectorAll('.lyr-btn').forEach((b,i)=>{
+      b.classList.toggle('active',(currentLayerType==='radar'&&i===0)||(currentLayerType==='satellite'&&i===1));
+    });
+    const legend=document.querySelector('.radar-legend');
+    if(legend) legend.style.display=currentLayerType==='radar'?'':'none';
   }
-  if(radarLayer){radarMap.removeLayer(radarLayer);radarLayer=null;}
-  try{
-    const resp=await fetch('https://api.rainviewer.com/public/weather-maps.json');
-    const data=await resp.json();
-    const frames=data.radar.past;
-    if(!frames||!frames.length) throw new Error('no frames');
-    const latest=frames[frames.length-1];
-    const dt=new Date(latest.time*1000);
-    const label=`${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-    document.getElementById('radarTimePill').textContent=`RainViewer ${label}`;
-    radarLayer=L.tileLayer(
-      `${data.host}${latest.path}/256/{z}/{x}/{y}/6/1_1.png`,
-      {opacity:0.6,maxZoom:12,attribution:'RainViewer'}
-    ).addTo(radarMap);
-  }catch(e){
-    document.getElementById('radarTimePill').textContent='取得失敗';
-    console.error('Radar error:', e);
-  }
+  await loadOverlay();
+}
+
+
+/* ══ CARD RESIZE ══ */
+function initCardResize(){
+  const SIZES_KEY='card_sizes_v1';
+  const saved=JSON.parse(localStorage.getItem(SIZES_KEY)||'{}');
+
+  document.querySelectorAll('.widget').forEach(widget=>{
+    const id=widget.id;
+    if(saved[id]) widget.style.minHeight=saved[id]+'px';
+
+    const handle=document.createElement('div');
+    handle.className='card-resize-handle';
+    handle.title='ドラッグで高さ変更';
+    widget.appendChild(handle);
+
+    let isResizing=false,startY=0,startH=0;
+
+    function onStart(clientY){
+      isResizing=true;startY=clientY;
+      startH=widget.getBoundingClientRect().height;
+      handle.classList.add('resizing');
+      document.body.style.cursor='s-resize';
+      document.body.style.userSelect='none';
+      document.body.style.webkitUserSelect='none';
+    }
+    function onMove(clientY){
+      if(!isResizing) return;
+      const newH=Math.max(80,startH+(clientY-startY));
+      widget.style.minHeight=newH+'px';
+      if(radarMap&&id==='w-radar') radarMap.invalidateSize();
+    }
+    function onEnd(){
+      if(!isResizing) return;
+      isResizing=false;
+      handle.classList.remove('resizing');
+      document.body.style.cursor='';
+      document.body.style.userSelect='';
+      document.body.style.webkitUserSelect='';
+      const sizes=JSON.parse(localStorage.getItem(SIZES_KEY)||'{}');
+      sizes[id]=Math.round(widget.getBoundingClientRect().height);
+      localStorage.setItem(SIZES_KEY,JSON.stringify(sizes));
+      if(radarMap&&id==='w-radar') setTimeout(()=>radarMap.invalidateSize(),60);
+    }
+
+    handle.addEventListener('mousedown',e=>{onStart(e.clientY);e.preventDefault();e.stopPropagation();});
+    document.addEventListener('mousemove',e=>onMove(e.clientY));
+    document.addEventListener('mouseup',onEnd);
+    handle.addEventListener('touchstart',e=>{onStart(e.touches[0].clientY);e.stopPropagation();},{passive:true});
+    handle.addEventListener('touchmove',e=>{onMove(e.touches[0].clientY);e.preventDefault();},{passive:false});
+    handle.addEventListener('touchend',onEnd);
+  });
 }
 
 /* ══ COLUMN RESIZE ══ */
@@ -975,6 +1097,7 @@ function initDragDrop(){
   root.addEventListener('dragstart',e=>{
     // ボタン・入力・リンク操作時はドラッグしない
     if(e.target.closest('button,input,a,select,label')) return;
+    if(e.target.closest('.leaflet-container,.card-resize-handle')) return;
     const w=e.target.closest('.widget');
     if(!w) return;
     dragW=w;
@@ -1027,7 +1150,8 @@ function initDragDrop(){
   let tSrc=null,tClone=null,tStartX=0,tStartY=0,tTimer=null;
 
   root.addEventListener('touchstart',e=>{
-    const h=e.target.closest('.drag-handle');
+    if(e.target.closest('button,input,a,select,label,.card-resize-handle,.col-resizer')) return;
+    const h=e.target.closest('.card-header');
     const w=h&&h.closest('.widget');
     if(!w) return;
     tStartX=e.touches[0].clientX; tStartY=e.touches[0].clientY; tSrc=w;
@@ -1136,6 +1260,7 @@ async function init(){
   restoreLayout();
   updateLocUI();
   updateCalDateLabel();
+  initCardResize();
   initColumnResize();
   initDragDrop();
   await Promise.all([loadCalendar(), loadWeather(), loadRadar()]);
