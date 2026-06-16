@@ -68,7 +68,7 @@ body{
 
 /* ── GRID ── */
 .grid-area{flex:1;padding:6px 10px 20px;}
-.columns{display:flex;gap:12px;align-items:flex-start;}
+.columns{display:flex;gap:4px;align-items:flex-start;}
 .column{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0;}
 @media(max-width:600px){
   .columns{flex-direction:column;}
@@ -262,6 +262,32 @@ body{
 .legend-row{display:flex;align-items:center;gap:4px;font-size:10px;color:rgba(255,255,255,0.7);}
 .legend-swatch{width:14px;height:7px;border-radius:2px;}
 
+
+/* ── COL RESIZER ── */
+.col-resizer{
+  width:16px;cursor:col-resize;position:relative;flex-shrink:0;
+}
+.col-resizer::after{
+  content:'';position:absolute;left:7px;top:24px;bottom:24px;
+  width:2px;background:var(--border);border-radius:1px;
+  transition:background 0.15s;
+}
+.col-resizer:hover::after,.col-resizer.resizing::after{background:var(--accent);}
+@media(max-width:600px){.col-resizer{display:none;}}
+
+/* ── MAP STYLE SELECTOR ── */
+.map-style-row{
+  display:flex;gap:5px;padding:6px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap;
+}
+.map-style-btn{
+  padding:2px 10px;border-radius:12px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text-sub);
+  font-size:11px;cursor:pointer;white-space:nowrap;
+  transition:background 0.15s,color 0.15s;
+}
+.map-style-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.map-style-btn:active{opacity:0.7;}
+
 /* ── SPINNER ── */
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;}
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -363,6 +389,8 @@ body{
 
     </div><!-- /col-0 -->
 
+    <div class="col-resizer" id="colResizer" title="ドラッグで幅調整"></div>
+
     <!-- 右列 -->
     <div class="column" id="col-1">
 
@@ -374,6 +402,12 @@ body{
             <span class="card-icon">🛰</span>
             <span class="card-title">雨雲レーダー</span>
           </div>
+          <div class="map-style-row">
+            <button class="map-style-btn" id="msBtn0" onclick="setMapStyle(0)">🗺 地図</button>
+            <button class="map-style-btn" id="msBtn1" onclick="setMapStyle(1)">🛰 衛星</button>
+            <button class="map-style-btn" id="msBtn2" onclick="setMapStyle(2)">🌑 ダーク</button>
+            <button class="map-style-btn" id="msBtn3" onclick="setMapStyle(3)">🏔 地形</button>
+          </div>
           <div class="radar-body">
             <div class="radar-container">
               <div id="radarMap"></div>
@@ -381,9 +415,9 @@ body{
               <div class="radar-legend">
                 <div class="legend-row"><div class="legend-swatch" style="background:#40e0ff"></div>〜1mm</div>
                 <div class="legend-row"><div class="legend-swatch" style="background:#00b400"></div>〜5mm</div>
-                <div class="legend-row"><div class="legend-swatch" style="background:#ffff00"></div>〜10mm</div>
-                <div class="legend-row"><div class="legend-swatch" style="background:#ff8c00"></div>〜20mm</div>
-                <div class="legend-row"><div class="legend-swatch" style="background:#ff0000"></div>20mm+</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#ffff00"></div>〜15mm</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#ff8c00"></div>〜30mm</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#ff0000"></div>30mm+</div>
               </div>
 
             </div>
@@ -823,14 +857,36 @@ function renderTransport(){
 }
 
 /* ══ RADAR — RainViewer ══ */
-let radarMap=null, radarLayer=null;
+const MAP_STYLES=[
+  {label:'🗺 地図',  url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', sub:'abcd', attr:'&copy; CARTO &copy; OSM'},
+  {label:'🛰 衛星',  url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', sub:'', attr:'Esri World Imagery'},
+  {label:'🌑 ダーク',url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', sub:'abcd', attr:'&copy; CARTO &copy; OSM'},
+  {label:'🏔 地形',  url:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', sub:'abc', attr:'&copy; OpenTopoMap (CC-BY-SA)'},
+];
+let currentMapStyle=parseInt(localStorage.getItem('map_style')||'0');
+let radarMap=null, baseTileLayer=null, radarLayer=null;
+
+function setMapStyle(idx){
+  currentMapStyle=idx;
+  localStorage.setItem('map_style',String(idx));
+  document.querySelectorAll('.map-style-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+  if(!radarMap) return;
+  if(baseTileLayer) radarMap.removeLayer(baseTileLayer);
+  const s=MAP_STYLES[idx];
+  const opts={attribution:s.attr,maxZoom:12};
+  if(s.sub) opts.subdomains=s.sub;
+  baseTileLayer=L.tileLayer(s.url,opts).addTo(radarMap);
+  if(radarLayer){radarMap.removeLayer(radarLayer);radarMap.addLayer(radarLayer);}
+}
 
 async function loadRadar(){
   if(!radarMap){
     radarMap=L.map('radarMap',{center:[36.2,138.0],zoom:6,zoomControl:true});
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
-      attribution:'&copy; CARTO &copy; OSM', subdomains:'abcd', maxZoom:12
-    }).addTo(radarMap);
+    const s=MAP_STYLES[currentMapStyle];
+    const opts={attribution:s.attr,maxZoom:12};
+    if(s.sub) opts.subdomains=s.sub;
+    baseTileLayer=L.tileLayer(s.url,opts).addTo(radarMap);
+    document.querySelectorAll('.map-style-btn').forEach((b,i)=>b.classList.toggle('active',i===currentMapStyle));
   }
   if(radarLayer){radarMap.removeLayer(radarLayer);radarLayer=null;}
   try{
@@ -844,12 +900,68 @@ async function loadRadar(){
     document.getElementById('radarTimePill').textContent=`RainViewer ${label}`;
     radarLayer=L.tileLayer(
       `${data.host}${latest.path}/256/{z}/{x}/{y}/6/1_1.png`,
-      {opacity:0.6, maxZoom:12, attribution:'RainViewer'}
+      {opacity:0.6,maxZoom:12,attribution:'RainViewer'}
     ).addTo(radarMap);
   }catch(e){
     document.getElementById('radarTimePill').textContent='取得失敗';
     console.error('Radar error:', e);
   }
+}
+
+/* ══ COLUMN RESIZE ══ */
+function initColumnResize(){
+  const resizer=document.getElementById('colResizer');
+  if(!resizer) return;
+  const col0=document.getElementById('col-0');
+  const col1=document.getElementById('col-1');
+  const container=document.getElementById('columnsRoot');
+
+  function applyRatio(ratio){
+    const p0=(ratio*100).toFixed(1)+'%';
+    const p1=((1-ratio)*100).toFixed(1)+'%';
+    col0.style.flex=`0 0 calc(${p0} - 10px)`;
+    col1.style.flex=`0 0 calc(${p1} - 10px)`;
+  }
+
+  // 保存済み比率を復元
+  const savedRatio=parseFloat(localStorage.getItem('col_ratio')||'0.5');
+  applyRatio(savedRatio);
+
+  let isResizing=false;
+
+  function startResize(clientX){
+    isResizing=true;
+    resizer.classList.add('resizing');
+    document.body.style.cursor='col-resize';
+    document.body.style.userSelect='none';
+    document.body.style.webkitUserSelect='none';
+  }
+  function doResize(clientX){
+    if(!isResizing) return;
+    const rect=container.getBoundingClientRect();
+    const ratio=Math.max(0.2,Math.min(0.8,(clientX-rect.left)/rect.width));
+    applyRatio(ratio);
+    if(radarMap) radarMap.invalidateSize();
+  }
+  function endResize(){
+    if(!isResizing) return;
+    isResizing=false;
+    resizer.classList.remove('resizing');
+    document.body.style.cursor='';
+    document.body.style.userSelect='';
+    document.body.style.webkitUserSelect='';
+    const rect=container.getBoundingClientRect();
+    const w0=col0.getBoundingClientRect().width;
+    localStorage.setItem('col_ratio',(w0/rect.width).toFixed(3));
+    if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
+  }
+
+  resizer.addEventListener('mousedown',e=>{startResize(e.clientX);e.preventDefault();});
+  document.addEventListener('mousemove',e=>doResize(e.clientX));
+  document.addEventListener('mouseup',endResize);
+  resizer.addEventListener('touchstart',e=>{startResize(e.touches[0].clientX);},{passive:true});
+  resizer.addEventListener('touchmove',e=>{doResize(e.touches[0].clientX);e.preventDefault();},{passive:false});
+  resizer.addEventListener('touchend',endResize);
 }
 
 /* ══════════════════════════════════════
@@ -1024,6 +1136,7 @@ async function init(){
   restoreLayout();
   updateLocUI();
   updateCalDateLabel();
+  initColumnResize();
   initDragDrop();
   await Promise.all([loadCalendar(), loadWeather(), loadRadar()]);
   updateFooter();
