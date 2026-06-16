@@ -264,12 +264,12 @@ body{
 /* ── CARD RESIZE HANDLE ── */
 .widget{position:relative;}
 .card-resize-handle{
-  position:absolute;bottom:0;left:0;right:0;height:14px;
-  cursor:s-resize;display:flex;align-items:center;justify-content:center;
-  z-index:5;border-radius:0 0 14px 14px;
+  position:absolute;bottom:0;left:0;right:0;height:10px;
+  cursor:s-resize;z-index:5;
 }
 .card-resize-handle::after{
-  content:'';width:32px;height:3px;background:var(--border);border-radius:2px;
+  content:'';position:absolute;bottom:0;left:5%;right:5%;
+  height:2px;background:var(--border);border-radius:1px;
   transition:background 0.15s;
 }
 .card-resize-handle:hover::after,.card-resize-handle.resizing::after{background:var(--accent);}
@@ -353,7 +353,13 @@ body{
           <div class="card-header">
             <span class="drag-handle">⠿</span>
             <span class="card-icon">🌤</span>
-            <span class="card-title">今日の天気予報</span>
+            <span class="card-title">天気予報</span>
+            <div class="cal-nav">
+              <button class="cal-nav-btn" onclick="weatherNav(-1)" title="前の日">◀</button>
+              <span class="cal-date-label" id="weatherDateLabel" onclick="weatherNavToday()">--</span>
+              <button class="cal-nav-btn" onclick="weatherNav(1)" title="次の日">▶</button>
+              <button class="cal-nav-btn" onclick="weatherNavToday()" title="今日" style="width:auto;padding:0 7px;font-size:10px;font-weight:600;">今日</button>
+            </div>
           </div>
           <!-- ロケーション選択 -->
           <div class="loc-row" id="locRow">
@@ -602,6 +608,37 @@ function gcalHandleRedirect(){
 
 /* ── Date navigation ── */
 let calDisplayDate=new Date(); calDisplayDate.setHours(0,0,0,0);
+let weatherDisplayDate=new Date(); weatherDisplayDate.setHours(0,0,0,0);
+
+function weatherNav(delta){
+  const today=new Date();today.setHours(0,0,0,0);
+  const next=new Date(weatherDisplayDate.getTime()+delta*86400000);
+  const diff=Math.round((next-today)/86400000);
+  if(diff<-1||diff>6) return;
+  weatherDisplayDate=next;
+  updateWeatherDateLabel();
+  loadWeather();
+}
+function weatherNavToday(){
+  const today=new Date();today.setHours(0,0,0,0);
+  if(weatherDisplayDate.getTime()===today.getTime()) return;
+  weatherDisplayDate=today;
+  updateWeatherDateLabel();
+  loadWeather();
+}
+function updateWeatherDateLabel(){
+  const el=document.getElementById('weatherDateLabel');
+  if(!el) return;
+  const today=new Date();today.setHours(0,0,0,0);
+  const diff=Math.round((weatherDisplayDate-today)/86400000);
+  const m=weatherDisplayDate.getMonth()+1, d=weatherDisplayDate.getDate();
+  let text=`${m}/${d}`;
+  if(diff===0) text+=' 今日';
+  else if(diff===1) text+=' 明日';
+  else if(diff===-1) text+=' 昨日';
+  el.textContent=text;
+  el.className='cal-date-label'+(diff===0?' is-today':'');
+}
 
 function calNav(delta){
   calDisplayDate=new Date(calDisplayDate.getTime()+delta*86400000);
@@ -833,28 +870,44 @@ async function loadWeather(){
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
       +`&hourly=temperature_2m,precipitation_probability,weathercode`
       +`&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max,sunrise,sunset`
-      +`&timezone=Asia%2FTokyo&forecast_days=1`
+      +`&timezone=Asia%2FTokyo&forecast_days=7&past_days=1`
     );
     const d=await r.json();
-    const hr=d.hourly, da=d.daily, curH=new Date().getHours();
-    const ct=Math.round(hr.temperature_2m[curH]), cw=hr.weathercode[curH];
+    const hr=d.hourly, da=d.daily;
+    const today=new Date();today.setHours(0,0,0,0);
+    const dayIdx=Math.round((weatherDisplayDate-today)/86400000);
+    const isToday=dayIdx===0;
+    const targetDate=weatherDisplayDate.toISOString().slice(0,10);
+    // その日の時間インデックスを抽出
+    const hourIdxs=hr.time.map((t,i)=>t.startsWith(targetDate)?i:-1).filter(i=>i>=0);
+    const curH=new Date().getHours();
+    // ヘッダー更新（今日は現在時刻の値、他は最高気温）
+    const hdrIdx=isToday?(hourIdxs[curH]??hourIdxs[0]):hourIdxs[12]??hourIdxs[0];
+    const ct=isToday?Math.round(hr.temperature_2m[hdrIdx]):Math.round(da.temperature_2m_max[dayIdx]??hr.temperature_2m[hdrIdx]);
+    const cw=hr.weathercode[hdrIdx];
     document.getElementById('headerTemp').textContent=`${ct}°`;
     document.getElementById('headerLoc').textContent=name;
     document.getElementById('headerDesc').textContent=`${WMO_ICO[cw]||''} ${WMO_TXT[cw]||''}`;
+    // 時間スロット
+    const startSlot=isToday?curH:0;
+    const endSlot=isToday?Math.min(curH+12,24):24;
     let slots='';
-    for(let i=curH;i<Math.min(curH+12,24);i++){
+    for(const i of hourIdxs.slice(startSlot,endSlot)){
       const prp=hr.precipitation_probability[i];
+      const h=parseInt(hr.time[i].slice(11,13));
       slots+=`<div class="hour-slot">
-        <div class="hour-label">${String(i).padStart(2,'0')}時</div>
+        <div class="hour-label">${String(h).padStart(2,'0')}時</div>
         <div class="hour-icon">${WMO_ICO[hr.weathercode[i]]||'❓'}</div>
         <div class="hour-temp">${Math.round(hr.temperature_2m[i])}°</div>
         <div class="hour-rain">${prp>0?`💧${prp}%`:''}</div>
       </div>`;
     }
-    document.getElementById('weatherHourly').innerHTML=slots;
-    const maxT=Math.round(da.temperature_2m_max[0]), minT=Math.round(da.temperature_2m_min[0]);
-    const rain=da.precipitation_probability_max[0], wind=Math.round(da.windspeed_10m_max[0]);
-    const sunR=(da.sunrise[0]||'').slice(11,16), sunS=(da.sunset[0]||'').slice(11,16);
+    document.getElementById('weatherHourly').innerHTML=slots||'<div style="padding:14px;font-size:12px;color:var(--text-sub)">データなし</div>';
+    // サマリー（daily配列は past_days=1 で dayIdx+1 がオフセット）
+    const di=da.time?da.time.findIndex(t=>t===targetDate):dayIdx+1;
+    const maxT=Math.round(da.temperature_2m_max[di]??0), minT=Math.round(da.temperature_2m_min[di]??0);
+    const rain=da.precipitation_probability_max[di]??0, wind=Math.round(da.windspeed_10m_max[di]??0);
+    const sunR=(da.sunrise[di]||'').slice(11,16), sunS=(da.sunset[di]||'').slice(11,16);
     document.getElementById('weatherSummary').innerHTML=`
       <div class="weather-stat"><div class="weather-stat-label">最高</div><div class="weather-stat-val" style="color:var(--danger)">${maxT}°</div></div>
       <div class="weather-stat"><div class="weather-stat-label">最低</div><div class="weather-stat-val" style="color:var(--accent)">${minT}°</div></div>
@@ -1253,6 +1306,7 @@ async function init(){
   restoreLayout();
   updateLocUI();
   updateCalDateLabel();
+  updateWeatherDateLabel();
   initCardResize();
   initDragDrop();
   await Promise.all([loadCalendar(), loadWeather(), loadRadar()]);
