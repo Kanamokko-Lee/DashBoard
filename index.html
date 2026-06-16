@@ -282,6 +282,20 @@ body{
 .radar-container:-webkit-full-screen #radarMap{height:100%!important;}
 .radar-container:fullscreen #radarMap{height:100%!important;}
 
+
+/* ── CARD SIDE RESIZE HANDLE ── */
+.card-resize-h{
+  position:absolute;top:15%;bottom:15%;width:10px;cursor:ew-resize;z-index:6;
+}
+.card-resize-h.right{right:-5px;}
+.card-resize-h.left{left:-5px;}
+.card-resize-h::after{
+  content:'';position:absolute;top:0;bottom:0;left:4px;
+  width:2px;background:var(--border);border-radius:1px;
+  transition:background 0.15s;
+}
+.card-resize-h:hover::after,.card-resize-h.resizing::after{background:var(--accent);}
+
 /* ── COL RESIZER ── */
 .col-resizer{
   width:16px;cursor:col-resize;position:relative;flex-shrink:0;
@@ -1027,27 +1041,97 @@ function initCardResize(){
     handle.addEventListener('touchstart',e=>{onStart(e.touches[0].clientY);e.stopPropagation();},{passive:true});
     handle.addEventListener('touchmove',e=>{onMove(e.touches[0].clientY);e.preventDefault();},{passive:false});
     handle.addEventListener('touchend',onEnd);
+
+    /* ── 横リサイズハンドル（カード端） ── */
+    const col=widget.closest('.column');
+    if(col){
+      const isLeft=col.id==='col-0';
+      const hHandle=document.createElement('div');
+      hHandle.className='card-resize-h '+(isLeft?'right':'left');
+      hHandle.title='ドラッグで幅変更';
+      widget.appendChild(hHandle);
+
+      let hResizing=false,hStartX=0,hStartRatio=0;
+      const container=document.getElementById('columnsRoot');
+
+      hHandle.addEventListener('mousedown',e=>{
+        hResizing=true;hStartX=e.clientX;
+        const col0=document.getElementById('col-0');
+        hStartRatio=col0.getBoundingClientRect().width/container.getBoundingClientRect().width;
+        hHandle.classList.add('resizing');
+        document.body.style.cursor='ew-resize';
+        document.body.style.userSelect='none';
+        e.preventDefault();e.stopPropagation();
+      });
+      document.addEventListener('mousemove',e=>{
+        if(!hResizing) return;
+        const dx=e.clientX-hStartX;
+        const cw=container.getBoundingClientRect().width;
+        const delta=isLeft?(dx/cw):(-dx/cw);
+        const ratio=Math.max(0.15,Math.min(0.85,hStartRatio+delta));
+        applyColRatio(ratio);
+        if(radarMap) radarMap.invalidateSize();
+      });
+      document.addEventListener('mouseup',()=>{
+        if(!hResizing) return;
+        hResizing=false;hHandle.classList.remove('resizing');
+        document.body.style.cursor='';document.body.style.userSelect='';
+        saveColRatio();
+        if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
+      });
+      hHandle.addEventListener('touchstart',e=>{
+        hResizing=true;hStartX=e.touches[0].clientX;
+        const col0=document.getElementById('col-0');
+        hStartRatio=col0.getBoundingClientRect().width/container.getBoundingClientRect().width;
+        hHandle.classList.add('resizing');e.stopPropagation();
+      },{passive:true});
+      hHandle.addEventListener('touchmove',e=>{
+        if(!hResizing) return;
+        const dx=e.touches[0].clientX-hStartX;
+        const cw=container.getBoundingClientRect().width;
+        const delta=isLeft?(dx/cw):(-dx/cw);
+        const ratio=Math.max(0.15,Math.min(0.85,hStartRatio+delta));
+        applyColRatio(ratio);
+        if(radarMap) radarMap.invalidateSize();
+        e.preventDefault();
+      },{passive:false});
+      hHandle.addEventListener('touchend',()=>{
+        if(!hResizing) return;
+        hResizing=false;hHandle.classList.remove('resizing');
+        saveColRatio();
+        if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
+      });
+    }
   });
 }
 
 /* ══ COLUMN RESIZE ══ */
+/* カード横幅リサイズで共用する列比率関数 */
+function applyColRatio(ratio){
+  const col0=document.getElementById('col-0');
+  const col1=document.getElementById('col-1');
+  const p0=(ratio*100).toFixed(1)+'%';
+  const p1=((1-ratio)*100).toFixed(1)+'%';
+  col0.style.flex=`0 0 calc(${p0} - 10px)`;
+  col1.style.flex=`0 0 calc(${p1} - 10px)`;
+}
+function saveColRatio(){
+  const col0=document.getElementById('col-0');
+  const container=document.getElementById('columnsRoot');
+  const w0=col0.getBoundingClientRect().width;
+  const ratio=(w0/container.getBoundingClientRect().width).toFixed(3);
+  localStorage.setItem('col_ratio',ratio);
+  return parseFloat(ratio);
+}
+
 function initColumnResize(){
   const resizer=document.getElementById('colResizer');
   if(!resizer) return;
-  const col0=document.getElementById('col-0');
-  const col1=document.getElementById('col-1');
   const container=document.getElementById('columnsRoot');
-
-  function applyRatio(ratio){
-    const p0=(ratio*100).toFixed(1)+'%';
-    const p1=((1-ratio)*100).toFixed(1)+'%';
-    col0.style.flex=`0 0 calc(${p0} - 10px)`;
-    col1.style.flex=`0 0 calc(${p1} - 10px)`;
-  }
 
   // 保存済み比率を復元
   const savedRatio=parseFloat(localStorage.getItem('col_ratio')||'0.5');
-  applyRatio(savedRatio);
+  applyColRatio(savedRatio);
 
   let isResizing=false;
 
@@ -1062,7 +1146,7 @@ function initColumnResize(){
     if(!isResizing) return;
     const rect=container.getBoundingClientRect();
     const ratio=Math.max(0.2,Math.min(0.8,(clientX-rect.left)/rect.width));
-    applyRatio(ratio);
+    applyColRatio(ratio);
     if(radarMap) radarMap.invalidateSize();
   }
   function endResize(){
@@ -1072,9 +1156,7 @@ function initColumnResize(){
     document.body.style.cursor='';
     document.body.style.userSelect='';
     document.body.style.webkitUserSelect='';
-    const rect=container.getBoundingClientRect();
-    const w0=col0.getBoundingClientRect().width;
-    localStorage.setItem('col_ratio',(w0/rect.width).toFixed(3));
+    saveColRatio();
     if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
   }
 
@@ -1097,7 +1179,7 @@ function initDragDrop(){
   root.addEventListener('dragstart',e=>{
     // ボタン・入力・リンク操作時はドラッグしない
     if(e.target.closest('button,input,a,select,label')) return;
-    if(e.target.closest('.leaflet-container,.card-resize-handle')) return;
+    if(e.target.closest('.leaflet-container,.card-resize-handle,.card-resize-h')) return;
     const w=e.target.closest('.widget');
     if(!w) return;
     dragW=w;
@@ -1150,7 +1232,7 @@ function initDragDrop(){
   let tSrc=null,tClone=null,tStartX=0,tStartY=0,tTimer=null;
 
   root.addEventListener('touchstart',e=>{
-    if(e.target.closest('button,input,a,select,label,.card-resize-handle,.col-resizer')) return;
+    if(e.target.closest('button,input,a,select,label,.card-resize-handle,.card-resize-h,.col-resizer')) return;
     const h=e.target.closest('.card-header');
     const w=h&&h.closest('.widget');
     if(!w) return;
