@@ -238,8 +238,8 @@ body{
 .radar-body{position:relative;}
 .radar-container{position:relative;width:100%;height:300px;}
 #radarMap{width:100%;height:100%;}
-.leaflet-control-attribution{font-size:8px!important;background:rgba(0,0,0,0.5)!important;color:rgba(255,255,255,0.5)!important;}
-.leaflet-control-attribution a{color:rgba(255,255,255,0.4)!important;}
+.leaflet-control-attribution{font-size:8px!important;background:rgba(255,255,255,0.7)!important;color:rgba(0,0,0,0.5)!important;}
+.leaflet-control-attribution a{color:rgba(0,0,0,0.4)!important;}
 .radar-float-btns{position:absolute;bottom:8px;left:8px;display:flex;gap:5px;z-index:1000;flex-wrap:wrap;}
 .radar-float-btn{
   display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:16px;
@@ -379,17 +379,13 @@ body{
               <div id="radarMap"></div>
               <div class="radar-time-pill" id="radarTimePill">読込中…</div>
               <div class="radar-legend">
-                <div class="legend-row"><div class="legend-swatch" style="background:#00c8ff"></div>弱</div>
-                <div class="legend-row"><div class="legend-swatch" style="background:#00e600"></div>並</div>
-                <div class="legend-row"><div class="legend-swatch" style="background:#ffff00"></div>強</div>
-                <div class="legend-row"><div class="legend-swatch" style="background:#ff8c00"></div>激</div>
-                <div class="legend-row"><div class="legend-swatch" style="background:#ff0000"></div>猛</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#40e0ff"></div>〜1mm</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#00b400"></div>〜5mm</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#ffff00"></div>〜10mm</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#ff8c00"></div>〜20mm</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#ff0000"></div>20mm+</div>
               </div>
-              <div class="radar-float-btns">
-                <a class="radar-float-btn" href="https://www.jma.go.jp/bosai/nowc/" target="_blank">🌐 気象庁</a>
-                <a class="radar-float-btn" href="https://weather.yahoo.co.jp/weather/zoomradar/" target="_blank">🟡 Yahoo!</a>
-                <a class="radar-float-btn" href="https://www.windy.com/?35.4,139.6,7" target="_blank">🌀 Windy</a>
-              </div>
+
             </div>
           </div>
         </div>
@@ -832,7 +828,7 @@ let radarMap=null, radarLayer=null;
 async function loadRadar(){
   if(!radarMap){
     radarMap=L.map('radarMap',{center:[36.2,138.0],zoom:6,zoomControl:true});
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
       attribution:'&copy; CARTO &copy; OSM', subdomains:'abcd', maxZoom:12
     }).addTo(radarMap);
   }
@@ -848,7 +844,7 @@ async function loadRadar(){
     document.getElementById('radarTimePill').textContent=`RainViewer ${label}`;
     radarLayer=L.tileLayer(
       `${data.host}${latest.path}/256/{z}/{x}/{y}/6/1_1.png`,
-      {opacity:0.65, maxZoom:12, attribution:'RainViewer'}
+      {opacity:0.6, maxZoom:12, attribution:'RainViewer'}
     ).addTo(radarMap);
   }catch(e){
     document.getElementById('radarTimePill').textContent='取得失敗';
@@ -865,8 +861,9 @@ function initDragDrop(){
   const root=document.getElementById('columnsRoot');
 
   root.addEventListener('dragstart',e=>{
-    const h=e.target.closest('.drag-handle');
-    const w=h&&h.closest('.widget');
+    // ボタン・入力・リンク操作時はドラッグしない
+    if(e.target.closest('button,input,a,select,label')) return;
+    const w=e.target.closest('.widget');
     if(!w) return;
     dragW=w;
     setTimeout(()=>w.classList.add('dragging'),0);
@@ -890,13 +887,19 @@ function initDragDrop(){
   });
   root.addEventListener('drop',e=>{
     e.preventDefault();
+    if(!dragW){clearDragOver();return;}
     const target=e.target.closest('.widget');
-    if(!target||!dragW||target===dragW){clearDragOver();return;}
-    const rect=target.getBoundingClientRect();
-    const before=e.clientY<rect.top+rect.height/2;
-    const col=target.closest('.column');
-    if(before) col.insertBefore(dragW,target);
-    else col.insertBefore(dragW,target.nextSibling);
+    const col=e.target.closest('.column');
+    if(target&&target!==dragW){
+      const rect=target.getBoundingClientRect();
+      const before=e.clientY<rect.top+rect.height/2;
+      if(before) col.insertBefore(dragW,target);
+      else col.insertBefore(dragW,target.nextSibling);
+    } else if(col&&!target){
+      col.appendChild(dragW); // 空列エリアへのドロップ
+    } else {
+      clearDragOver(); return;
+    }
     dragW.dataset.col=col.id==='col-0'?'0':'1';
     clearDragOver(); saveLayout();
     if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
