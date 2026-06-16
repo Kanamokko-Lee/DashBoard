@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Today">
+<title>Today</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+/* ══ TOKENS ══ */
+:root {
+  --bg:       #0d0f14;
+  --surface:  #151820;
+  --surface2: #1c2030;
+  --border:   #252a38;
+  --text:     #e8ecf4;
+  --text-sub: #7a8299;
+  --text-dim: #3d4458;
+  --accent:   #4a9eff;
+  --accent2:  #7ec8ff;
+  --warn:     #ff9f43;
+  --danger:   #ff6b6b;
+  --good:     #26de81;
+  --runway:   linear-gradient(90deg,transparent 0%,#4a9eff33 20%,#4a9eff 50%,#4a9eff33 80%,transparent 100%);
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:#f0f2f7; --surface:#fff; --surface2:#f5f7fc; --border:#dde1ec;
+    --text:#1a1f2e; --text-sub:#5a637a; --text-dim:#b0b8cc;
+    --accent:#1a6fd4; --accent2:#2a7fe4; --warn:#e07b00; --danger:#d63031; --good:#00b894;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  height:100%;
+  font-family:-apple-system,'SF Pro Display','Hiragino Sans',sans-serif;
+  background:var(--bg); color:var(--text);
+  overflow-x:hidden; user-select:none; -webkit-user-select:none;
+}
+body{
+  display:flex; flex-direction:column; min-height:100vh;
+  padding:env(safe-area-inset-top,12px) 0 env(safe-area-inset-bottom,0);
+}
+
+/* ── HEADER ── */
+.header{
+  padding:18px 22px 0;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.clock{font-size:42px;font-weight:200;letter-spacing:-1px;line-height:1;font-variant-numeric:tabular-nums;}
+.date-line{font-size:13px;color:var(--text-sub);margin-top:3px;}
+.header-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.weather-temp-big{font-size:42px;font-weight:200;line-height:1;letter-spacing:-1px;}
+.weather-loc-label{font-size:11px;color:var(--accent2);text-align:right;font-weight:500;}
+.weather-desc{font-size:12px;color:var(--text-sub);text-align:right;}
+
+/* ── RUNWAY ── */
+.runway{
+  height:1px; background:var(--runway); margin:12px 0 8px; position:relative;
+}
+.runway::before,.runway::after{
+  content:'▶'; position:absolute; top:-7px; font-size:10px; color:var(--accent); opacity:0.5;
+}
+.runway::before{left:22px;} .runway::after{right:22px;transform:rotate(180deg);}
+
+/* ── GRID ── */
+.grid-area{flex:1;padding:6px 10px 20px;}
+.columns{display:flex;gap:12px;align-items:flex-start;}
+.column{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0;}
+@media(max-width:600px){
+  .columns{flex-direction:column;}
+  .column{width:100%;}
+}
+
+/* ── WIDGET ── */
+.widget{position:relative;cursor:default;touch-action:pan-y;}
+.widget.dragging{opacity:0.4;}
+.widget.drag-over-top{border-top:3px solid var(--accent);border-radius:3px 3px 0 0;}
+.widget.drag-over-bottom{border-bottom:3px solid var(--accent);}
+
+/* ── CARD ── */
+.card{background:var(--surface);border-radius:14px;border:1px solid var(--border);overflow:hidden;}
+.card-header{
+  display:flex;align-items:center;gap:6px;
+  padding:11px 15px 9px;border-bottom:1px solid var(--border);
+  cursor:grab;
+}
+.card-header:active{cursor:grabbing;}
+.drag-handle{color:var(--text-dim);font-size:13px;padding-right:4px;cursor:grab;}
+.card-icon{font-size:14px;opacity:0.8;}
+.card-title{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-sub);}
+
+/* ── LOCATION PICKER ── */
+.loc-row{
+  display:flex;gap:5px;align-items:center;
+  padding:7px 15px;border-bottom:1px solid var(--border);flex-wrap:wrap;
+}
+.loc-btn{
+  padding:3px 11px;border-radius:12px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text-sub);
+  font-size:11px;cursor:pointer;white-space:nowrap;
+  transition:background 0.15s,color 0.15s,border-color 0.15s;
+}
+.loc-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.loc-btn:active{opacity:0.7;}
+.loc-custom-wrap{border-bottom:1px solid var(--border);}
+.loc-custom-row{display:flex;gap:6px;padding:8px 15px;}
+.loc-input{
+  flex:1;padding:7px 10px;border-radius:8px;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);font-size:12px;outline:none;-webkit-appearance:none;
+  user-select:text;-webkit-user-select:text;
+}
+.loc-input:focus{border-color:var(--accent);}
+.loc-input::placeholder{color:var(--text-dim);}
+.loc-search-btn{
+  padding:7px 12px;border-radius:8px;background:var(--accent);
+  color:#fff;font-size:12px;border:none;cursor:pointer;
+}
+.loc-search-btn:active{opacity:0.8;}
+.loc-results{max-height:140px;overflow-y:auto;padding:4px 15px;}
+.loc-result-item{
+  padding:8px 0;border-bottom:1px solid var(--border);
+  font-size:12px;cursor:pointer;color:var(--text-sub);line-height:1.3;
+}
+.loc-result-item:last-child{border-bottom:none;}
+.loc-result-item:active{color:var(--accent);}
+
+/* ── WEATHER BODY ── */
+.weather-body{padding:11px 15px;}
+.weather-hourly{display:flex;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
+.weather-hourly::-webkit-scrollbar{display:none;}
+.hour-slot{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:48px;padding:0 2px;}
+.hour-label{font-size:10px;color:var(--text-sub);font-variant-numeric:tabular-nums;}
+.hour-icon{font-size:17px;}
+.hour-temp{font-size:12px;font-weight:500;}
+.hour-rain{font-size:10px;color:var(--accent2);min-height:13px;}
+.weather-summary{margin-top:9px;display:flex;gap:8px;padding-top:9px;border-top:1px solid var(--border);flex-wrap:wrap;}
+.weather-stat{display:flex;flex-direction:column;gap:1px;flex:1;min-width:50px;}
+.weather-stat-label{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.07em;}
+.weather-stat-val{font-size:14px;font-weight:500;}
+
+/* ── CALENDAR HEADER CONTROLS ── */
+.cal-nav{display:flex;align-items:center;gap:3px;margin-left:auto;}
+.cal-nav-btn{
+  width:22px;height:22px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text-sub);
+  font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.cal-nav-btn:active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.cal-date-label{
+  font-size:11px;color:var(--text);white-space:nowrap;cursor:pointer;
+  padding:2px 5px;border-radius:5px;
+}
+.cal-date-label.is-today{color:var(--accent);font-weight:600;}
+.cal-date-label:active{background:var(--surface2);}
+.cal-settings-btn{
+  width:22px;height:22px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text-sub);
+  font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  margin-left:4px;flex-shrink:0;
+}
+.cal-settings-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.cal-refresh{font-size:10px;color:var(--text-dim);margin-left:2px;}
+
+/* ── CALENDAR SETTINGS PANEL ── */
+.cal-settings-panel{
+  display:none;padding:8px 15px;border-bottom:1px solid var(--border);
+  background:var(--surface2);
+}
+.cal-settings-panel.open{display:block;}
+.cal-check-row{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer;
+}
+.cal-check-row:last-child{border-bottom:none;}
+.cal-color-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.cal-check-label{font-size:12px;flex:1;color:var(--text);}
+.cal-checkbox{width:14px;height:14px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;}
+
+/* ── SCHEDULE ── */
+.schedule-body{padding:5px 0;}
+.event-row{display:flex;align-items:flex-start;padding:8px 15px;gap:11px;}
+.event-time{font-size:11px;color:var(--text-sub);font-variant-numeric:tabular-nums;white-space:nowrap;padding-top:2px;min-width:46px;}
+.event-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);margin-top:5px;flex-shrink:0;}
+.event-dot.flight{background:var(--warn);}
+.event-dot.allday{background:var(--text-dim);}
+.event-info{flex:1;}
+.event-title{font-size:14px;font-weight:500;line-height:1.3;}
+.event-location{font-size:11px;color:var(--text-sub);margin-top:1px;}
+.event-badge{font-size:9px;padding:2px 6px;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;white-space:nowrap;align-self:center;}
+.event-badge.flight{background:#ff6b2b;}
+.no-events{padding:16px 15px;color:var(--text-dim);font-size:13px;text-align:center;}
+.loading-text{padding:16px 15px;color:var(--text-sub);font-size:12px;text-align:center;animation:pulse 1.4s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:0.4;}50%{opacity:1;}}
+
+/* ── GCAL SETUP ── */
+.gcal-setup{padding:14px 15px 16px;}
+.gcal-setup p{font-size:12px;color:var(--text-sub);margin-bottom:10px;line-height:1.5;}
+.gcal-input-row{display:flex;gap:8px;align-items:stretch;}
+.gcal-input{
+  flex:1;padding:9px 12px;border-radius:9px;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);font-size:13px;outline:none;-webkit-appearance:none;
+  user-select:text;-webkit-user-select:text;
+}
+.gcal-input:focus{border-color:var(--accent);}
+.gcal-input::placeholder{color:var(--text-dim);}
+.gcal-save-btn{
+  padding:9px 14px;border-radius:9px;background:var(--accent);color:#fff;
+  font-size:13px;font-weight:600;border:none;cursor:pointer;white-space:nowrap;
+}
+.gcal-save-btn:active{opacity:0.8;}
+.gcal-signin-btn{
+  display:block;margin-top:10px;padding:10px;border-radius:9px;
+  background:var(--accent);color:#fff;
+  text-align:center;font-size:13px;font-weight:600;cursor:pointer;border:none;width:100%;
+}
+.gcal-signin-btn:active{opacity:0.8;}
+.gcal-id-hint{margin-top:8px;font-size:11px;color:var(--text-dim);line-height:1.5;}
+
+/* ── TRANSPORT ── */
+.transport-body{padding:6px 0;}
+.transport-row{display:flex;align-items:center;padding:8px 15px;gap:10px;border-bottom:1px solid var(--border);text-decoration:none;color:var(--text);}
+.transport-row:last-child{border-bottom:none;}
+.transport-icon{font-size:17px;width:26px;text-align:center;}
+.transport-info{flex:1;}
+.transport-name{font-size:13px;font-weight:500;}
+.transport-sub{font-size:11px;color:var(--text-sub);margin-top:1px;}
+.transport-status{font-size:11px;font-weight:600;padding:2px 8px;border-radius:8px;}
+.status-check{background:#4a9eff22;color:var(--accent);}
+
+/* ── RADAR ── */
+.radar-body{position:relative;}
+.radar-container{position:relative;width:100%;height:300px;}
+#radarMap{width:100%;height:100%;}
+.leaflet-control-attribution{font-size:8px!important;background:rgba(0,0,0,0.5)!important;color:rgba(255,255,255,0.5)!important;}
+.leaflet-control-attribution a{color:rgba(255,255,255,0.4)!important;}
+.radar-float-btns{position:absolute;bottom:8px;left:8px;display:flex;gap:5px;z-index:1000;flex-wrap:wrap;}
+.radar-float-btn{
+  display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:16px;
+  background:rgba(13,15,20,0.80);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,0.12);text-decoration:none;color:#e8ecf4;
+  font-size:11px;font-weight:500;white-space:nowrap;
+}
+.radar-float-btn:active{background:rgba(74,158,255,0.4);}
+.radar-time-pill{
+  position:absolute;top:8px;right:8px;z-index:1000;
+  font-size:10px;color:rgba(255,255,255,0.7);
+  background:rgba(0,0,0,0.55);padding:2px 7px;border-radius:8px;
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+}
+.radar-legend{
+  position:absolute;top:8px;left:8px;z-index:1000;
+  background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  border-radius:7px;padding:5px 7px;display:flex;flex-direction:column;gap:2px;
+}
+.legend-row{display:flex;align-items:center;gap:4px;font-size:10px;color:rgba(255,255,255,0.7);}
+.legend-swatch{width:14px;height:7px;border-radius:2px;}
+
+/* ── SPINNER ── */
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── FOOTER ── */
+.footer{text-align:center;padding:5px 14px 14px;font-size:10px;color:var(--text-dim);cursor:pointer;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div>
+    <div class="clock" id="clock">--:--</div>
+    <div class="date-line" id="dateLabel">--</div>
+  </div>
+  <div class="header-right">
+    <div class="weather-temp-big" id="headerTemp">--°</div>
+    <div class="weather-loc-label" id="headerLoc">--</div>
+    <div class="weather-desc" id="headerDesc">読込中…</div>
+  </div>
+</div>
+
+<div class="runway"></div>
+
+<!-- COLUMN GRID -->
+<div class="grid-area">
+  <div class="columns" id="columnsRoot">
+
+    <!-- 左列 -->
+    <div class="column" id="col-0">
+
+      <!-- 天気ウィジェット -->
+      <div class="widget" id="w-weather" data-col="0" draggable="true">
+        <div class="card">
+          <div class="card-header">
+            <span class="drag-handle">⠿</span>
+            <span class="card-icon">🌤</span>
+            <span class="card-title">今日の天気予報</span>
+          </div>
+          <!-- ロケーション選択 -->
+          <div class="loc-row" id="locRow">
+            <button class="loc-btn" id="locBtn0" onclick="setLocation(0)">逗子</button>
+            <button class="loc-btn" id="locBtn1" onclick="setLocation(1)">羽田</button>
+            <button class="loc-btn" id="locBtn2" onclick="setLocation(2)">横浜</button>
+            <button class="loc-btn" id="locBtnCustom" onclick="toggleCustomLoc()">📍 その他</button>
+          </div>
+          <div class="loc-custom-wrap" id="customLocWrap" style="display:none">
+            <div class="loc-custom-row">
+              <input class="loc-input" id="locSearchInput" type="text" placeholder="地名を入力…">
+              <button class="loc-search-btn" onclick="searchLocation()">検索</button>
+            </div>
+            <div class="loc-results" id="locResults"></div>
+          </div>
+          <div class="weather-body">
+            <div class="weather-hourly" id="weatherHourly">
+              <div class="loading-text"><span class="spinner"></span> 取得中…</div>
+            </div>
+            <div class="weather-summary" id="weatherSummary"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- カレンダーウィジェット -->
+      <div class="widget" id="w-cal" data-col="0" draggable="true">
+        <div class="card">
+          <div class="card-header">
+            <span class="drag-handle">⠿</span>
+            <span class="card-icon">📋</span>
+            <span class="card-title">予定</span>
+            <!-- 日付ナビ -->
+            <div class="cal-nav">
+              <button class="cal-nav-btn" onclick="calNav(-1)" title="前の日">◀</button>
+              <span class="cal-date-label" id="calDateLabel" onclick="calNavToday()">--</span>
+              <button class="cal-nav-btn" onclick="calNav(1)" title="次の日">▶</button>
+            </div>
+            <!-- カレンダー選択 -->
+            <button class="cal-settings-btn" id="calSettingsBtn" onclick="toggleCalSettings()" title="カレンダー選択">☰</button>
+            <span class="cal-refresh" id="calRefresh"></span>
+          </div>
+          <div class="cal-settings-panel" id="calSettingsPanel"></div>
+          <div id="scheduleBody">
+            <div class="loading-text"><span class="spinner"></span> カレンダー読込中…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 交通情報ウィジェット -->
+      <div class="widget" id="w-transport" data-col="0" draggable="true" style="display:none">
+        <div class="card">
+          <div class="card-header">
+            <span class="drag-handle">⠿</span>
+            <span class="card-icon">🚃</span>
+            <span class="card-title">交通・遅延情報</span>
+          </div>
+          <div class="transport-body" id="transportBody"></div>
+        </div>
+      </div>
+
+    </div><!-- /col-0 -->
+
+    <!-- 右列 -->
+    <div class="column" id="col-1">
+
+      <!-- 雨雲レーダーウィジェット -->
+      <div class="widget" id="w-radar" data-col="1" draggable="true">
+        <div class="card">
+          <div class="card-header">
+            <span class="drag-handle">⠿</span>
+            <span class="card-icon">🛰</span>
+            <span class="card-title">雨雲レーダー</span>
+          </div>
+          <div class="radar-body">
+            <div class="radar-container">
+              <div id="radarMap"></div>
+              <div class="radar-time-pill" id="radarTimePill">読込中…</div>
+              <div class="radar-legend">
+                <div class="legend-row"><div class="legend-swatch" style="background:#00c8ff"></div>弱</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#00e600"></div>並</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#ffff00"></div>強</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#ff8c00"></div>激</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#ff0000"></div>猛</div>
+              </div>
+              <div class="radar-float-btns">
+                <a class="radar-float-btn" href="https://www.jma.go.jp/bosai/nowc/" target="_blank">🌐 気象庁</a>
+                <a class="radar-float-btn" href="https://weather.yahoo.co.jp/weather/zoomradar/" target="_blank">🟡 Yahoo!</a>
+                <a class="radar-float-btn" href="https://www.windy.com/?35.4,139.6,7" target="_blank">🌀 Windy</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /col-1 -->
+
+  </div><!-- /columns -->
+</div><!-- /grid-area -->
+
+<div class="footer" id="footer">
+  タップで再読み込み &nbsp;｜&nbsp; ⠿ ドラッグで並び替え
+</div>
+
+<script>
+'use strict';
+
+/* ══ CLOCK ══ */
+const WDAYS=['日','月','火','水','木','金','土'];
+function updateClock(){
+  const n=new Date();
+  document.getElementById('clock').textContent=
+    `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+  document.getElementById('dateLabel').textContent=
+    `${n.getFullYear()}年${n.getMonth()+1}月${n.getDate()}日（${WDAYS[n.getDay()]}）`;
+}
+updateClock(); setInterval(updateClock,15000);
+function fmtTime(d){return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
+
+/* ══════════════════════════════════════
+   LOCATION
+══════════════════════════════════════ */
+const PRESETS=[
+  {name:'逗子市', lat:35.2942, lon:139.5779},
+  {name:'羽田空港', lat:35.5494, lon:139.7798},
+  {name:'横浜', lat:35.4437, lon:139.6380},
+];
+const LOC_KEY='weather_location_v2';
+
+function getSavedLoc(){
+  try{
+    const s=localStorage.getItem(LOC_KEY);
+    if(s) return JSON.parse(s);
+  }catch(e){}
+  return {...PRESETS[2], presetIdx:2};
+}
+let currentLoc=getSavedLoc();
+
+function updateLocUI(){
+  PRESETS.forEach((_,i)=>{
+    const btn=document.getElementById(`locBtn${i}`);
+    if(btn) btn.classList.toggle('active', currentLoc.presetIdx===i);
+  });
+  const customBtn=document.getElementById('locBtnCustom');
+  if(customBtn) customBtn.classList.toggle('active', currentLoc.presetIdx===-1);
+  document.getElementById('headerLoc').textContent=currentLoc.name;
+}
+
+function setLocation(idx){
+  currentLoc={...PRESETS[idx], presetIdx:idx};
+  localStorage.setItem(LOC_KEY, JSON.stringify(currentLoc));
+  document.getElementById('customLocWrap').style.display='none';
+  updateLocUI();
+  loadWeather();
+}
+
+function toggleCustomLoc(){
+  const wrap=document.getElementById('customLocWrap');
+  const isOpen=wrap.style.display==='none';
+  wrap.style.display=isOpen?'block':'none';
+  if(isOpen) document.getElementById('locSearchInput').focus();
+}
+
+let locSearchResults=[];
+async function searchLocation(){
+  const q=(document.getElementById('locSearchInput').value||'').trim();
+  if(!q) return;
+  const res=document.getElementById('locResults');
+  res.innerHTML=`<div class="loading-text" style="padding:8px 0"><span class="spinner"></span> 検索中…</div>`;
+  try{
+    const r=await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=ja&format=json`
+    );
+    const d=await r.json();
+    locSearchResults=d.results||[];
+    if(!locSearchResults.length){
+      res.innerHTML=`<div class="loc-result-item">見つかりませんでした</div>`;
+      return;
+    }
+    res.innerHTML=locSearchResults.map((p,i)=>{
+      const label=[p.name, p.admin1, p.country].filter(Boolean).join(', ');
+      return`<div class="loc-result-item" data-idx="${i}">📍 ${label}</div>`;
+    }).join('');
+    res.querySelectorAll('.loc-result-item').forEach(el=>{
+      el.addEventListener('click',()=>pickCustomLoc(Number(el.dataset.idx)));
+    });
+  }catch(e){
+    res.innerHTML=`<div class="loc-result-item">検索エラー</div>`;
+  }
+}
+
+function pickCustomLoc(idx){
+  const p=locSearchResults[idx];
+  if(!p) return;
+  const label=[p.name, p.admin1].filter(Boolean).join(', ');
+  currentLoc={name:label, lat:p.latitude, lon:p.longitude, presetIdx:-1};
+  localStorage.setItem(LOC_KEY, JSON.stringify(currentLoc));
+  document.getElementById('customLocWrap').style.display='none';
+  document.getElementById('locResults').innerHTML='';
+  document.getElementById('locSearchInput').value='';
+  updateLocUI();
+  loadWeather();
+}
+
+/* ══════════════════════════════════════
+   GOOGLE CALENDAR
+══════════════════════════════════════ */
+const GCAL_CLIENT_KEY='gcal_client_id';
+const GCAL_TOKEN_KEY ='gcal_token';
+const GCAL_EXPIRY_KEY='gcal_expiry';
+const GCAL_SCOPES    ='https://www.googleapis.com/auth/calendar.readonly';
+const CAL_SEL_KEY    ='gcal_selected_cals_v2';
+
+function gcalClientId(){return localStorage.getItem(GCAL_CLIENT_KEY)||'';}
+function gcalGetToken(){
+  const exp=localStorage.getItem(GCAL_EXPIRY_KEY);
+  if(exp&&Date.now()<Number(exp)) return localStorage.getItem(GCAL_TOKEN_KEY);
+  return null;
+}
+function gcalSaveToken(tok,sec){
+  localStorage.setItem(GCAL_TOKEN_KEY,tok);
+  localStorage.setItem(GCAL_EXPIRY_KEY,String(Date.now()+sec*1000-60000));
+}
+function gcalSignIn(){
+  const cid=gcalClientId();
+  if(!cid){showSetupUI();return;}
+  const redirect=location.origin+location.pathname;
+  location.href='https://accounts.google.com/o/oauth2/v2/auth'
+    +`?client_id=${encodeURIComponent(cid)}`
+    +`&redirect_uri=${encodeURIComponent(redirect)}`
+    +'&response_type=token'
+    +`&scope=${encodeURIComponent(GCAL_SCOPES)}`
+    +'&prompt=consent';
+}
+function gcalHandleRedirect(){
+  if(!location.hash) return false;
+  const p=new URLSearchParams(location.hash.slice(1));
+  const tok=p.get('access_token');
+  if(tok){
+    gcalSaveToken(tok,Number(p.get('expires_in'))||3600);
+    history.replaceState(null,'',location.pathname);
+    return true;
+  }
+  return false;
+}
+
+/* ── Date navigation ── */
+let calDisplayDate=new Date(); calDisplayDate.setHours(0,0,0,0);
+
+function calNav(delta){
+  calDisplayDate=new Date(calDisplayDate.getTime()+delta*86400000);
+  updateCalDateLabel();
+  loadCalendar();
+}
+function calNavToday(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  if(calDisplayDate.getTime()===today.getTime()) return;
+  calDisplayDate=today;
+  updateCalDateLabel();
+  loadCalendar();
+}
+function updateCalDateLabel(){
+  const n=calDisplayDate;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const diff=Math.round((calDisplayDate-today)/86400000);
+  const label=document.getElementById('calDateLabel');
+  let text=`${n.getMonth()+1}/${n.getDate()}(${WDAYS[n.getDay()]})`;
+  if(diff===0) text+=' 今日';
+  else if(diff===1) text+=' 明日';
+  else if(diff===-1) text+=' 昨日';
+  label.textContent=text;
+  label.classList.toggle('is-today', diff===0);
+}
+
+/* ── Calendar selector ── */
+let calCalendarsCache=null;
+let calEventsCache=[];
+
+function getSelectedCalIds(){
+  const s=localStorage.getItem(CAL_SEL_KEY);
+  if(!s) return null; // null = すべて表示
+  try{return new Set(JSON.parse(s));}catch(e){return null;}
+}
+function saveSelectedCalIds(ids){
+  localStorage.setItem(CAL_SEL_KEY, JSON.stringify([...ids]));
+}
+
+function renderCalSettingsPanel(calendars){
+  if(!calendars||!calendars.length) return;
+  const selectedIds=getSelectedCalIds();
+  const panel=document.getElementById('calSettingsPanel');
+  panel.innerHTML=calendars.map(cal=>{
+    const checked=!selectedIds||selectedIds.has(cal.id);
+    const color=cal.backgroundColor||'#4a9eff';
+    return`<label class="cal-check-row">
+      <input type="checkbox" class="cal-checkbox" data-calid="${cal.id}" ${checked?'checked':''}>
+      <span class="cal-color-dot" style="background:${color}"></span>
+      <span class="cal-check-label">${cal.summary||cal.id}</span>
+    </label>`;
+  }).join('');
+  panel.querySelectorAll('.cal-checkbox').forEach(cb=>{
+    cb.addEventListener('change',()=>{
+      const checked=new Set(
+        [...panel.querySelectorAll('.cal-checkbox:checked')].map(el=>el.dataset.calid)
+      );
+      saveSelectedCalIds(checked);
+      renderEvents(filterEvents(calEventsCache, checked));
+    });
+  });
+}
+
+function toggleCalSettings(){
+  const panel=document.getElementById('calSettingsPanel');
+  const btn=document.getElementById('calSettingsBtn');
+  const open=panel.classList.toggle('open');
+  btn.classList.toggle('active',open);
+  if(open&&calCalendarsCache) renderCalSettingsPanel(calCalendarsCache);
+}
+
+function filterEvents(events, selectedIds){
+  if(!selectedIds) return events;
+  return events.filter(ev=>selectedIds.has(ev.calId));
+}
+
+/* ── Setup UI ── */
+function showSetupUI(msg){
+  const cid=gcalClientId();
+  document.getElementById('scheduleBody').innerHTML=`
+    <div class="gcal-setup">
+      ${msg?`<p style="color:var(--warn)">${msg}</p>`:''}
+      <p>Google カレンダーを表示するにはOAuth クライアントID（ウェブアプリ用）を入力してください。</p>
+      <div class="gcal-input-row">
+        <input class="gcal-input" id="gcalClientInput" type="text"
+          placeholder="xxxx.apps.googleusercontent.com" value="${cid}">
+        <button class="gcal-save-btn" onclick="saveClientId()">保存</button>
+      </div>
+      <div class="gcal-id-hint">
+        ※ <a href="https://console.cloud.google.com/apis/credentials" target="_blank"
+           style="color:var(--accent)">Google Cloud Console</a> で作成した
+        「ウェブアプリケーション」用のクライアントID<br>
+        ※ 承認済みリダイレクトURIにこのページのURLを追加してください
+      </div>
+      ${cid?`<button class="gcal-signin-btn" onclick="gcalSignIn()">🔑 Google カレンダーに接続</button>`:''}
+    </div>`;
+}
+
+function saveClientId(){
+  const val=(document.getElementById('gcalClientInput')?.value||'').trim();
+  if(!val){showSetupUI('クライアントIDを入力してください');return;}
+  localStorage.setItem(GCAL_CLIENT_KEY,val);
+  localStorage.removeItem(GCAL_TOKEN_KEY);
+  localStorage.removeItem(GCAL_EXPIRY_KEY);
+  document.getElementById('scheduleBody').innerHTML=`
+    <div class="gcal-setup">
+      <p style="color:var(--good)">✓ クライアントIDを保存しました</p>
+      <button class="gcal-signin-btn" onclick="gcalSignIn()">🔑 Google カレンダーに接続</button>
+    </div>`;
+}
+
+/* ── Fetch & render events ── */
+async function gcalFetchAll(token, date){
+  const start=new Date(date.getFullYear(),date.getMonth(),date.getDate(),0,0,0).toISOString();
+  const end  =new Date(date.getFullYear(),date.getMonth(),date.getDate(),23,59,59).toISOString();
+
+  const calR=await fetch(
+    'https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader',
+    {headers:{Authorization:`Bearer ${token}`}}
+  );
+  if(!calR.ok) return null;
+  const calData=await calR.json();
+  const calendars=calData.items||[];
+  calCalendarsCache=calendars;
+
+  const all=[];
+  await Promise.all(calendars.map(async cal=>{
+    try{
+      const evR=await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`
+        +`?timeMin=${encodeURIComponent(start)}&timeMax=${encodeURIComponent(end)}`
+        +`&singleEvents=true&orderBy=startTime&maxResults=50`,
+        {headers:{Authorization:`Bearer ${token}`}}
+      );
+      if(!evR.ok) return;
+      const evD=await evR.json();
+      for(const ev of (evD.items||[])){
+        const isAllDay=!!ev.start?.date;
+        const sdt=isAllDay?null:new Date(ev.start.dateTime);
+        const edt=isAllDay?null:new Date(ev.end.dateTime);
+        const title=ev.summary||'（タイトルなし）';
+        const isFlight=/\bJ\d{1,4}\b|PAIRING|フライト|ペアリング/i.test(title+(cal.summary||''));
+        all.push({
+          calId:cal.id,
+          sortKey:isAllDay?'0000':fmtTime(sdt),
+          title, loc:ev.location||'', isAllDay, isFlight,
+          startTime:isAllDay?'終日':fmtTime(sdt),
+          endTime:isAllDay?'':fmtTime(edt),
+          calColor:cal.backgroundColor||'#4a9eff',
+        });
+      }
+    }catch(e){}
+  }));
+  all.sort((a,b)=>a.sortKey.localeCompare(b.sortKey));
+  return {calendars, events:all};
+}
+
+function renderEvents(events){
+  const el=document.getElementById('scheduleBody');
+  if(!events||!events.length){
+    el.innerHTML=`<div class="no-events">予定はありません ✈</div>`;
+    return;
+  }
+  el.innerHTML=events.map(ev=>{
+    const dotClass=ev.isFlight?'flight':ev.isAllDay?'allday':'';
+    const badge=ev.isFlight?`<span class="event-badge flight">FLIGHT</span>`:'';
+    const timeStr=ev.isAllDay?'終日':`${ev.startTime}–${ev.endTime}`;
+    const loc=ev.loc?`<div class="event-location">📍 ${ev.loc}</div>`:'';
+    return`<div class="event-row">
+      <div class="event-time">${timeStr}</div>
+      <div class="event-dot ${dotClass}" style="background:${ev.calColor}"></div>
+      <div class="event-info"><div class="event-title">${ev.title}</div>${loc}</div>
+      ${badge}</div>`;
+  }).join('');
+}
+
+async function loadCalendar(){
+  const el=document.getElementById('scheduleBody');
+  const cid=gcalClientId();
+  if(!cid){showSetupUI();return;}
+  const token=gcalGetToken();
+  if(!token){
+    el.innerHTML=`<div class="gcal-setup">
+      <p>Googleアカウントの認証が必要です</p>
+      <button class="gcal-signin-btn" onclick="gcalSignIn()">🔑 Google カレンダーに接続</button>
+      <div style="margin-top:8px;text-align:center">
+        <span onclick="showSetupUI()" style="font-size:11px;color:var(--text-dim);cursor:pointer;text-decoration:underline">
+          クライアントIDを変更する
+        </span>
+      </div>
+    </div>`;
+    return;
+  }
+  el.innerHTML=`<div class="loading-text"><span class="spinner"></span> 読込中…</div>`;
+  try{
+    const result=await gcalFetchAll(token, calDisplayDate);
+    if(result===null){
+      localStorage.removeItem(GCAL_TOKEN_KEY);
+      el.innerHTML=`<div class="gcal-setup">
+        <p style="color:var(--warn)">セッションが切れました</p>
+        <button class="gcal-signin-btn" onclick="gcalSignIn()">🔑 再サインイン</button>
+      </div>`;
+      return;
+    }
+    calEventsCache=result.events;
+    // 設定パネルが開いていれば更新
+    if(document.getElementById('calSettingsPanel').classList.contains('open')){
+      renderCalSettingsPanel(result.calendars);
+    }
+    const selectedIds=getSelectedCalIds();
+    renderEvents(filterEvents(result.events, selectedIds));
+    document.getElementById('calRefresh').textContent=fmtTime(new Date());
+    const hasOutdoor=result.events.some(ev=>!ev.isAllDay&&!ev.isFlight&&ev.loc);
+    if(hasOutdoor){renderTransport();document.getElementById('w-transport').style.display='';}
+  }catch(e){
+    el.innerHTML=`<div class="no-events">読み込みエラー</div>`;
+    console.error(e);
+  }
+}
+
+/* ══ WEATHER ══ */
+const WMO_ICO={0:'☀️',1:'🌤',2:'⛅',3:'☁️',45:'🌫',48:'🌫',51:'🌦',53:'🌦',55:'🌧',61:'🌧',63:'🌧',65:'🌧',71:'🌨',73:'🌨',75:'❄️',80:'🌦',81:'🌧',82:'⛈',95:'⛈',96:'⛈',99:'⛈'};
+const WMO_TXT={0:'晴れ',1:'ほぼ晴れ',2:'薄曇り',3:'曇り',45:'霧',48:'霧',51:'小雨',53:'雨',55:'強雨',61:'小雨',63:'雨',65:'強雨',71:'小雪',73:'雪',75:'大雪',80:'にわか雨',81:'雨',82:'激しい雨',95:'雷雨',96:'雷雨',99:'激しい雷雨'};
+
+async function loadWeather(){
+  const {lat,lon,name}=currentLoc;
+  try{
+    const r=await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+      +`&hourly=temperature_2m,precipitation_probability,weathercode`
+      +`&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max,sunrise,sunset`
+      +`&timezone=Asia%2FTokyo&forecast_days=1`
+    );
+    const d=await r.json();
+    const hr=d.hourly, da=d.daily, curH=new Date().getHours();
+    const ct=Math.round(hr.temperature_2m[curH]), cw=hr.weathercode[curH];
+    document.getElementById('headerTemp').textContent=`${ct}°`;
+    document.getElementById('headerLoc').textContent=name;
+    document.getElementById('headerDesc').textContent=`${WMO_ICO[cw]||''} ${WMO_TXT[cw]||''}`;
+    let slots='';
+    for(let i=curH;i<Math.min(curH+12,24);i++){
+      const prp=hr.precipitation_probability[i];
+      slots+=`<div class="hour-slot">
+        <div class="hour-label">${String(i).padStart(2,'0')}時</div>
+        <div class="hour-icon">${WMO_ICO[hr.weathercode[i]]||'❓'}</div>
+        <div class="hour-temp">${Math.round(hr.temperature_2m[i])}°</div>
+        <div class="hour-rain">${prp>0?`💧${prp}%`:''}</div>
+      </div>`;
+    }
+    document.getElementById('weatherHourly').innerHTML=slots;
+    const maxT=Math.round(da.temperature_2m_max[0]), minT=Math.round(da.temperature_2m_min[0]);
+    const rain=da.precipitation_probability_max[0], wind=Math.round(da.windspeed_10m_max[0]);
+    const sunR=(da.sunrise[0]||'').slice(11,16), sunS=(da.sunset[0]||'').slice(11,16);
+    document.getElementById('weatherSummary').innerHTML=`
+      <div class="weather-stat"><div class="weather-stat-label">最高</div><div class="weather-stat-val" style="color:var(--danger)">${maxT}°</div></div>
+      <div class="weather-stat"><div class="weather-stat-label">最低</div><div class="weather-stat-val" style="color:var(--accent)">${minT}°</div></div>
+      <div class="weather-stat"><div class="weather-stat-label">降水確率</div><div class="weather-stat-val">${rain}%</div></div>
+      <div class="weather-stat"><div class="weather-stat-label">最大風速</div><div class="weather-stat-val">${wind}<span style="font-size:9px">km/h</span></div></div>
+      <div class="weather-stat"><div class="weather-stat-label">日の出</div><div class="weather-stat-val" style="font-size:13px">${sunR}</div></div>
+      <div class="weather-stat"><div class="weather-stat-label">日の入</div><div class="weather-stat-val" style="font-size:13px">${sunS}</div></div>`;
+  }catch(e){
+    document.getElementById('weatherHourly').innerHTML=
+      `<div style="padding:14px;color:var(--text-sub);font-size:12px">天気を取得できませんでした</div>`;
+  }
+}
+
+/* ══ TRANSPORT ══ */
+function renderTransport(){
+  document.getElementById('transportBody').innerHTML=[
+    {icon:'🚃',name:'Yahoo!路線 遅延情報',sub:'JR・私鉄のリアルタイム遅延',url:'https://transit.yahoo.co.jp/traininfo/top'},
+    {icon:'🚗',name:'Yahoo!カーナビ 渋滞情報',sub:'現在の道路状況',url:'https://map.yahoo.co.jp/'},
+    {icon:'✈️',name:'Flightradar24',sub:'フライト・気象レーダー',url:'https://www.flightradar24.com/35.68,139.76/8'},
+  ].map(l=>`<a class="transport-row" href="${l.url}" target="_blank">
+    <div class="transport-icon">${l.icon}</div>
+    <div class="transport-info"><div class="transport-name">${l.name}</div><div class="transport-sub">${l.sub}</div></div>
+    <div class="transport-status status-check">確認する</div></a>`).join('');
+}
+
+/* ══ RADAR — RainViewer ══ */
+let radarMap=null, radarLayer=null;
+
+async function loadRadar(){
+  if(!radarMap){
+    radarMap=L.map('radarMap',{center:[36.2,138.0],zoom:6,zoomControl:true});
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+      attribution:'&copy; CARTO &copy; OSM', subdomains:'abcd', maxZoom:12
+    }).addTo(radarMap);
+  }
+  if(radarLayer){radarMap.removeLayer(radarLayer);radarLayer=null;}
+  try{
+    const resp=await fetch('https://api.rainviewer.com/public/weather-maps.json');
+    const data=await resp.json();
+    const frames=data.radar.past;
+    if(!frames||!frames.length) throw new Error('no frames');
+    const latest=frames[frames.length-1];
+    const dt=new Date(latest.time*1000);
+    const label=`${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    document.getElementById('radarTimePill').textContent=`RainViewer ${label}`;
+    radarLayer=L.tileLayer(
+      `${data.host}${latest.path}/256/{z}/{x}/{y}/6/1_1.png`,
+      {opacity:0.65, maxZoom:12, attribution:'RainViewer'}
+    ).addTo(radarMap);
+  }catch(e){
+    document.getElementById('radarTimePill').textContent='取得失敗';
+    console.error('Radar error:', e);
+  }
+}
+
+/* ══════════════════════════════════════
+   DRAG & DROP（デスクトップ + iOS）
+══════════════════════════════════════ */
+let dragW=null;
+
+function initDragDrop(){
+  const root=document.getElementById('columnsRoot');
+
+  root.addEventListener('dragstart',e=>{
+    const h=e.target.closest('.drag-handle');
+    const w=h&&h.closest('.widget');
+    if(!w) return;
+    dragW=w;
+    setTimeout(()=>w.classList.add('dragging'),0);
+    e.dataTransfer.effectAllowed='move';
+  });
+  root.addEventListener('dragend',()=>{
+    if(dragW) dragW.classList.remove('dragging');
+    clearDragOver(); dragW=null;
+  });
+  root.addEventListener('dragover',e=>{
+    e.preventDefault();
+    const w=e.target.closest('.widget');
+    if(!w||w===dragW) return;
+    clearDragOver();
+    const rect=w.getBoundingClientRect();
+    if(e.clientY<rect.top+rect.height/2) w.classList.add('drag-over-top');
+    else w.classList.add('drag-over-bottom');
+  });
+  root.addEventListener('dragleave',e=>{
+    if(!e.relatedTarget||!e.relatedTarget.closest('.widget')) clearDragOver();
+  });
+  root.addEventListener('drop',e=>{
+    e.preventDefault();
+    const target=e.target.closest('.widget');
+    if(!target||!dragW||target===dragW){clearDragOver();return;}
+    const rect=target.getBoundingClientRect();
+    const before=e.clientY<rect.top+rect.height/2;
+    const col=target.closest('.column');
+    if(before) col.insertBefore(dragW,target);
+    else col.insertBefore(dragW,target.nextSibling);
+    dragW.dataset.col=col.id==='col-0'?'0':'1';
+    clearDragOver(); saveLayout();
+    if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
+  });
+
+  function clearDragOver(){
+    document.querySelectorAll('.widget').forEach(n=>{
+      n.classList.remove('drag-over-top','drag-over-bottom');
+    });
+  }
+
+  /* iOS Touch */
+  let tSrc=null,tClone=null,tStartX=0,tStartY=0,tTimer=null;
+
+  root.addEventListener('touchstart',e=>{
+    const h=e.target.closest('.drag-handle');
+    const w=h&&h.closest('.widget');
+    if(!w) return;
+    tStartX=e.touches[0].clientX; tStartY=e.touches[0].clientY; tSrc=w;
+    tTimer=setTimeout(()=>{
+      if(!tSrc) return;
+      const r=w.getBoundingClientRect();
+      tClone=w.cloneNode(true);
+      Object.assign(tClone.style,{
+        position:'fixed',left:`${r.left}px`,top:`${r.top}px`,
+        width:`${r.width}px`,opacity:'0.85',pointerEvents:'none',
+        zIndex:'9999',borderRadius:'14px',
+        boxShadow:'0 8px 30px rgba(0,0,0,0.5)',transition:'none'
+      });
+      document.body.appendChild(tClone);
+      w.style.opacity='0.25';
+    },250);
+  },{passive:true});
+
+  root.addEventListener('touchmove',e=>{
+    if(!tSrc||!tClone) return;
+    e.preventDefault();
+    const t=e.touches[0];
+    const dx=t.clientX-tStartX, dy=t.clientY-tStartY;
+    const r=tSrc.getBoundingClientRect();
+    tClone.style.left=`${r.left+dx}px`;
+    tClone.style.top=`${r.top+dy}px`;
+    tClone.style.display='none';
+    const el=document.elementFromPoint(t.clientX,t.clientY);
+    tClone.style.display='';
+    const over=el&&el.closest('.widget');
+    document.querySelectorAll('.widget').forEach(n=>n.classList.remove('drag-over-top','drag-over-bottom'));
+    if(over&&over!==tSrc){
+      const rect=over.getBoundingClientRect();
+      if(t.clientY<rect.top+rect.height/2) over.classList.add('drag-over-top');
+      else over.classList.add('drag-over-bottom');
+    }
+  },{passive:false});
+
+  root.addEventListener('touchend',e=>{
+    clearTimeout(tTimer);
+    if(!tSrc){tSrc=null;return;}
+    if(tClone){
+      const t=e.changedTouches[0];
+      tClone.style.display='none';
+      const el=document.elementFromPoint(t.clientX,t.clientY);
+      tClone.style.display='';
+      const target=el&&el.closest('.widget');
+      if(target&&target!==tSrc){
+        const rect=target.getBoundingClientRect();
+        const before=t.clientY<rect.top+rect.height/2;
+        const col=target.closest('.column');
+        if(before) col.insertBefore(tSrc,target);
+        else col.insertBefore(tSrc,target.nextSibling);
+        tSrc.dataset.col=col.id==='col-0'?'0':'1';
+        saveLayout();
+        if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
+      }
+      tSrc.style.opacity='';
+      tClone.remove(); tClone=null;
+      document.querySelectorAll('.widget').forEach(n=>n.classList.remove('drag-over-top','drag-over-bottom'));
+    }
+    tSrc=null;
+  });
+}
+
+/* ── レイアウト保存/復元 ── */
+const LAYOUT_KEY='dashboard_layout_v3';
+function saveLayout(){
+  const layout=[];
+  document.querySelectorAll('.column').forEach((col,ci)=>{
+    col.querySelectorAll('.widget').forEach(w=>{
+      layout.push({id:w.id,col:ci,hidden:w.style.display==='none'});
+    });
+  });
+  localStorage.setItem(LAYOUT_KEY,JSON.stringify(layout));
+}
+function restoreLayout(){
+  const saved=localStorage.getItem(LAYOUT_KEY);
+  if(!saved) return;
+  try{
+    const layout=JSON.parse(saved);
+    const cols=[document.getElementById('col-0'),document.getElementById('col-1')];
+    layout.forEach(({id,col,hidden})=>{
+      const el=document.getElementById(id);
+      if(!el) return;
+      cols[col]?.appendChild(el);
+      if(!hidden) el.style.display='';
+    });
+  }catch(e){}
+}
+
+/* ── FOOTER ── */
+function updateFooter(){
+  document.getElementById('footer').textContent=
+    `最終更新 ${fmtTime(new Date())} — タップで再読み込み ｜ ⠿ ドラッグで並び替え`;
+}
+
+/* ── Enter key for location search ── */
+document.getElementById('locSearchInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter') searchLocation();
+});
+
+/* ══ INIT ══ */
+async function init(){
+  gcalHandleRedirect();
+  restoreLayout();
+  updateLocUI();
+  updateCalDateLabel();
+  initDragDrop();
+  await Promise.all([loadCalendar(), loadWeather(), loadRadar()]);
+  updateFooter();
+}
+
+document.getElementById('footer').addEventListener('click', async()=>{
+  document.getElementById('scheduleBody').innerHTML=
+    `<div class="loading-text"><span class="spinner"></span> 更新中…</div>`;
+  document.getElementById('weatherHourly').innerHTML=
+    `<div class="loading-text"><span class="spinner"></span> 更新中…</div>`;
+  document.getElementById('weatherSummary').innerHTML='';
+  await Promise.all([loadCalendar(), loadWeather(), loadRadar()]);
+  updateFooter();
+});
+
+init();
+</script>
+</body>
+</html>
