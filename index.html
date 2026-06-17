@@ -333,6 +333,37 @@ body{
 
 /* ── FOOTER ── */
 .footer{text-align:center;padding:5px 14px 14px;font-size:10px;color:var(--text-dim);cursor:pointer;line-height:1.6;}
+
+/* ── TRAIN STATUS ── */
+.train-settings-panel{display:none;padding:8px 15px;border-bottom:1px solid var(--border);background:var(--surface2);}
+.train-settings-panel.open{display:block;}
+.train-line-grid{display:flex;flex-wrap:wrap;gap:5px;padding:4px 0;}
+.train-line-chip{padding:3px 10px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text-sub);font-size:11px;cursor:pointer;transition:background 0.15s,color 0.15s;}
+.train-line-chip.selected{background:var(--accent);border-color:var(--accent);color:#fff;}
+.train-row{display:flex;align-items:center;padding:7px 15px;gap:10px;border-bottom:1px solid var(--border);}
+.train-row:last-child{border-bottom:none;}
+.train-name{font-size:13px;flex:1;}
+.train-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;white-space:nowrap;}
+.badge-ok{background:#26de8122;color:var(--good);}
+.badge-delay{background:#ff6b6b22;color:var(--danger);}
+.train-src{font-size:9px;color:var(--text-dim);margin-top:2px;}
+
+/* ── YCAT BUS ── */
+.bus-row{display:flex;align-items:center;padding:7px 15px;gap:8px;border-bottom:1px solid var(--border);}
+.bus-row:last-child{border-bottom:none;}
+.bus-time{font-size:16px;font-weight:500;font-variant-numeric:tabular-nums;min-width:50px;}
+.bus-until{font-size:11px;color:var(--accent);font-weight:600;min-width:65px;text-align:right;}
+.bus-next-label{font-size:9px;padding:2px 7px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;white-space:nowrap;}
+.bus-hint{padding:5px 15px 9px;font-size:10px;color:var(--text-dim);line-height:1.6;}
+
+/* ── TRAFFIC ROUTES ── */
+.traffic-row{display:flex;align-items:center;padding:7px 15px;gap:8px;border-bottom:1px solid var(--border);text-decoration:none;color:var(--text);}
+.traffic-row:last-child{border-bottom:none;}
+.traffic-icon{font-size:15px;width:22px;text-align:center;}
+.traffic-info{flex:1;}
+.traffic-name{font-size:13px;font-weight:500;}
+.traffic-sub{font-size:10px;color:var(--text-sub);margin-top:1px;}
+.traffic-arrow{font-size:14px;color:var(--text-dim);}
 </style>
 </head>
 <body>
@@ -427,6 +458,50 @@ body{
             <span class="card-title">交通・遅延情報</span>
           </div>
           <div class="transport-body" id="transportBody"></div>
+        </div>
+      </div>
+
+    <!-- 鉄道運行情報ウィジェット -->
+      <div class="widget" id="w-train" draggable="true">
+        <div class="card">
+          <div class="card-header">
+            <span class="drag-handle">⠿</span>
+            <span class="card-icon">🚉</span>
+            <span class="card-title">鉄道運行情報</span>
+            <button class="cal-settings-btn" id="trainSettingsBtn" onclick="toggleTrainSettings()" title="路線選択">☰</button>
+            <span class="cal-refresh" id="trainRefresh"></span>
+          </div>
+          <div class="train-settings-panel" id="trainSettingsPanel"></div>
+          <div id="trainBody"><div class="loading-text"><span class="spinner"></span> 取得中…</div></div>
+        </div>
+      </div>
+
+    <!-- YCATバス時刻ウィジェット -->
+      <div class="widget" id="w-ycat" draggable="true">
+        <div class="card">
+          <div class="card-header">
+            <span class="drag-handle">⠿</span>
+            <span class="card-icon">🚌</span>
+            <span class="card-title">YCATバス時刻</span>
+            <a class="cal-settings-btn" href="https://www.ycat.co.jp/route/" target="_blank" title="公式サイト" style="font-size:10px;text-decoration:none;display:flex;align-items:center;justify-content:center;">🔗</a>
+          </div>
+          <div class="loc-row" id="ycatDestRow">
+            <button class="loc-btn" id="ycatBtn-haneda" onclick="setYcatDest('haneda')">✈ 羽田空港</button>
+            <button class="loc-btn" id="ycatBtn-narita" onclick="setYcatDest('narita')">✈ 成田空港</button>
+          </div>
+          <div id="ycatBody"><div class="loading-text">計算中…</div></div>
+        </div>
+      </div>
+
+    <!-- 道路渋滞情報ウィジェット -->
+      <div class="widget" id="w-traffic" draggable="true">
+        <div class="card">
+          <div class="card-header">
+            <span class="drag-handle">⠿</span>
+            <span class="card-icon">🚗</span>
+            <span class="card-title">道路・渋滞情報</span>
+          </div>
+          <div id="trafficBody"></div>
         </div>
       </div>
 
@@ -943,6 +1018,157 @@ function renderTransport(){
     <div class="transport-status status-check">確認する</div></a>`).join('');
 }
 
+/* ══ TRAIN DELAY ══ */
+const TRAIN_LINES_KEY='train_selected_v1';
+const TRAIN_LINES=[
+  {id:'jrtokaido',  name:'JR東海道線',     keys:['東海道線']},
+  {id:'jryokosuka', name:'JR横須賀線',     keys:['横須賀線']},
+  {id:'jrkeihin',   name:'JR京浜東北線',   keys:['京浜東北']},
+  {id:'jrnambu',    name:'JR南武線',       keys:['南武線']},
+  {id:'jrnegishi',  name:'JR根岸線',       keys:['根岸線']},
+  {id:'keikyu',     name:'京急',           keys:['京急','京浜急行']},
+  {id:'sotetsu',    name:'相鉄線',         keys:['相鉄','相模鉄道']},
+  {id:'tokyu-t',    name:'東急東横線',     keys:['東横線','東急東横']},
+  {id:'tokyu-d',    name:'東急田園都市線', keys:['田園都市']},
+  {id:'ym-blue',    name:'横浜市営地下鉄', keys:['横浜市営','ブルーライン']},
+  {id:'odakyu',     name:'小田急',         keys:['小田急']},
+];
+
+function getSelTrainLines(){
+  try{const s=localStorage.getItem(TRAIN_LINES_KEY);if(s)return new Set(JSON.parse(s));}catch(e){}
+  return new Set(['jrtokaido','jryokosuka','jrkeihin','keikyu','sotetsu','tokyu-t']);
+}
+function saveSelTrainLines(ids){localStorage.setItem(TRAIN_LINES_KEY,JSON.stringify([...ids]));}
+
+function renderTrainSettings(){
+  const sel=getSelTrainLines();
+  document.getElementById('trainSettingsPanel').innerHTML=
+    `<div class="train-line-grid">${TRAIN_LINES.map(l=>
+      `<button class="train-line-chip${sel.has(l.id)?' selected':''}" onclick="toggleTrainLine('${l.id}',this)">${l.name}</button>`
+    ).join('')}</div>`;
+}
+function toggleTrainSettings(){
+  const p=document.getElementById('trainSettingsPanel');
+  const b=document.getElementById('trainSettingsBtn');
+  const open=p.classList.toggle('open');
+  b.classList.toggle('active',open);
+  if(open) renderTrainSettings();
+}
+function toggleTrainLine(id,btn){
+  const sel=getSelTrainLines();
+  if(sel.has(id)){sel.delete(id);btn.classList.remove('selected');}
+  else{sel.add(id);btn.classList.add('selected');}
+  saveSelTrainLines(sel);
+  renderTrainBody(trainDelayCache);
+}
+
+let trainDelayCache=[];
+async function loadTrainDelay(){
+  try{
+    const r=await fetch('https://rti-giken.jp/fhc/api/train_tetsudo/delay.json');
+    trainDelayCache=await r.json();
+    renderTrainBody(trainDelayCache);
+    document.getElementById('trainRefresh').textContent=fmtTime(new Date());
+  }catch(e){
+    document.getElementById('trainBody').innerHTML=`<div class="no-events">取得エラー（通信を確認）</div>`;
+  }
+}
+function renderTrainBody(delayed){
+  const sel=getSelTrainLines();
+  const lines=TRAIN_LINES.filter(l=>sel.has(l.id));
+  const el=document.getElementById('trainBody');
+  if(!lines.length){el.innerHTML=`<div class="no-events">路線を選択してください（☰）</div>`;return;}
+  const delayNames=delayed.map(d=>d.name||'');
+  el.innerHTML=lines.map(l=>{
+    const isDelay=delayNames.some(n=>l.keys.some(k=>n.includes(k)));
+    return`<div class="train-row">
+      <div class="train-name">${l.name}</div>
+      <div class="train-badge ${isDelay?'badge-delay':'badge-ok'}">${isDelay?'遅延あり':'平常運転'}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ══ YCAT BUS ══ */
+const YCAT_TBL={
+  haneda:['05:50','06:05','06:20','06:35','06:50','07:05','07:20','07:35','07:50',
+    '08:05','08:20','08:35','08:50','09:05','09:20','09:35','09:50',
+    '10:05','10:20','10:35','10:50','11:05','11:20','11:35','11:50',
+    '12:05','12:20','12:35','12:50','13:05','13:20','13:35','13:50',
+    '14:05','14:20','14:35','14:50','15:05','15:20','15:35','15:50',
+    '16:05','16:20','16:35','16:50','17:05','17:20','17:35','17:50',
+    '18:05','18:20','18:35','18:50','19:05','19:20','19:35','19:50',
+    '20:05','20:20','20:35','20:50','21:05','21:20','21:35'],
+  narita:['06:30','07:00','07:30','08:00','08:30','09:00','09:30','10:00',
+    '10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00',
+    '14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00',
+    '18:30','19:00']
+};
+const YCAT_INFO={
+  haneda:{sub:'第1・第2・第3ターミナル',time:'約25〜35分'},
+  narita:{sub:'第1・第2・第3ターミナル',time:'約80〜120分'}
+};
+let currentYcatDest=localStorage.getItem('ycat_dest')||'haneda';
+
+function setYcatDest(dest){
+  currentYcatDest=dest;
+  localStorage.setItem('ycat_dest',dest);
+  document.querySelectorAll('#ycatDestRow .loc-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById(`ycatBtn-${dest}`);
+  if(btn) btn.classList.add('active');
+  renderYcatBus();
+}
+function renderYcatBus(){
+  const now=new Date();
+  const nowMin=now.getHours()*60+now.getMinutes();
+  const schedule=YCAT_TBL[currentYcatDest];
+  const info=YCAT_INFO[currentYcatDest];
+  const el=document.getElementById('ycatBody');
+  const upcoming=schedule.map(t=>{
+    const[h,m]=t.split(':').map(Number);
+    return{time:t,diff:h*60+m-nowMin};
+  }).filter(x=>x.diff>=-2).slice(0,5);
+  if(!upcoming.length){el.innerHTML=`<div class="no-events">本日の運行は終了しました</div>`;return;}
+  el.innerHTML=upcoming.map((x,i)=>{
+    const until=x.diff<=0?'出発済':x.diff<60?`あと${x.diff}分`:`あと${Math.floor(x.diff/60)}時間${x.diff%60}分`;
+    return`<div class="bus-row">
+      <div class="bus-time">${x.time}</div>
+      <div style="flex:1;font-size:11px;color:var(--text-sub)">${info.sub}</div>
+      <div class="bus-until">${until}</div>
+      ${i===0?'<div class="bus-next-label">次発</div>':''}
+    </div>`;
+  }).join('')
+  +`<div class="bus-hint">所要 ${info.time}　※時刻は目安です。<a href="https://www.ycat.co.jp/route/" target="_blank" style="color:var(--accent)">公式サイト</a>で確認を</div>`;
+}
+
+/* ══ TRAFFIC ROUTES ══ */
+function renderTrafficRoutes(){
+  const routes=[
+    {icon:'🛣',name:'横浜横須賀道路',sub:'横浜〜逗子〜横須賀方面',
+      url:'https://www.e-nexco.co.jp/road_info/area_search/kanto/'},
+    {icon:'🛣',name:'首都高速湾岸線',sub:'横浜〜羽田〜東京（湾岸）',
+      url:'https://www.shutoko.jp/use/traffic/'},
+    {icon:'🛣',name:'首都高横羽線',sub:'横浜〜羽田〜東京（横羽）',
+      url:'https://www.shutoko.jp/use/traffic/'},
+    {icon:'🚗',name:'国道1号（東海道）',sub:'横浜〜川崎〜東京',
+      url:'https://www.jartic.or.jp/'},
+    {icon:'🚗',name:'国道16号',sub:'横浜環状・八王子方面',
+      url:'https://www.jartic.or.jp/'},
+    {icon:'🌊',name:'国道134号',sub:'逗子〜鎌倉〜江ノ島〜藤沢',
+      url:'https://www.jartic.or.jp/'},
+    {icon:'🗺',name:'リアルタイム渋滞マップ',sub:'Yahoo! カーナビ',
+      url:'https://map.yahoo.co.jp/v2/traffic'},
+    {icon:'📡',name:'JARTIC 道路交通情報',sub:'高速・国道の渋滞・規制情報',
+      url:'https://www.jartic.or.jp/'},
+  ];
+  document.getElementById('trafficBody').innerHTML=routes.map(r=>
+    `<a class="traffic-row" href="${r.url}" target="_blank">
+      <div class="traffic-icon">${r.icon}</div>
+      <div class="traffic-info"><div class="traffic-name">${r.name}</div><div class="traffic-sub">${r.sub}</div></div>
+      <div class="traffic-arrow">›</div>
+    </a>`
+  ).join('');
+}
+
 /* ══ RADAR — RainViewer ══ */
 const MAP_STYLES=[
   {label:'🗺 地図',  url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', sub:'abcd', attr:'&copy; CARTO &copy; OSM'},
@@ -1341,8 +1567,12 @@ async function init(){
   updateWeatherDateLabel();
   initCardResize();
   initDragDrop();
-  await Promise.all([loadCalendar(), loadWeather(), loadRadar()]);
+  setYcatDest(currentYcatDest);
+  renderTrafficRoutes();
+  await Promise.all([loadCalendar(), loadWeather(), loadRadar(), loadTrainDelay()]);
   updateFooter();
+  setInterval(loadTrainDelay, 5*60*1000);
+  setInterval(renderYcatBus, 60*1000);
 }
 
 document.getElementById('footer').addEventListener('click', async()=>{
@@ -1351,7 +1581,10 @@ document.getElementById('footer').addEventListener('click', async()=>{
   document.getElementById('weatherHourly').innerHTML=
     `<div class="loading-text"><span class="spinner"></span> 更新中…</div>`;
   document.getElementById('weatherSummary').innerHTML='';
-  await Promise.all([loadCalendar(), loadWeather(), loadRadar()]);
+  document.getElementById('trainBody').innerHTML=
+    `<div class="loading-text"><span class="spinner"></span> 更新中…</div>`;
+  await Promise.all([loadCalendar(), loadWeather(), loadRadar(), loadTrainDelay()]);
+  renderYcatBus();
   updateFooter();
 });
 
