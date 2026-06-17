@@ -356,14 +356,20 @@ body{
 .bus-next-label{font-size:9px;padding:2px 7px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;white-space:nowrap;}
 .bus-hint{padding:5px 15px 9px;font-size:10px;color:var(--text-dim);line-height:1.6;}
 
-/* ── TRAFFIC ROUTES ── */
-.traffic-row{display:flex;align-items:center;padding:7px 15px;gap:8px;border-bottom:1px solid var(--border);text-decoration:none;color:var(--text);}
-.traffic-row:last-child{border-bottom:none;}
-.traffic-icon{font-size:15px;width:22px;text-align:center;}
-.traffic-info{flex:1;}
-.traffic-name{font-size:13px;font-weight:500;}
-.traffic-sub{font-size:10px;color:var(--text-sub);margin-top:1px;}
-.traffic-arrow{font-size:14px;color:var(--text-dim);}
+/* ── TRAFFIC TIME ── */
+.traffic-time-block{padding:12px 15px;}
+.traffic-time-block+.traffic-time-block{border-top:1px solid var(--border);}
+.traffic-route-label{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-sub);margin-bottom:8px;flex-wrap:wrap;}
+.traffic-route-label strong{color:var(--text);font-weight:500;}
+.traffic-cells{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.traffic-cell{flex:1;background:var(--surface2);border-radius:9px;padding:7px 8px;text-align:center;}
+.traffic-cell-label{font-size:9px;color:var(--text-dim);letter-spacing:0.05em;margin-bottom:3px;text-transform:uppercase;}
+.traffic-cell-val{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;}
+.traffic-cell-unit{font-size:10px;font-weight:400;margin-left:1px;}
+.traffic-status-icon{font-size:22px;flex-shrink:0;}
+.traffic-maps-btn{display:block;text-align:center;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text-sub);font-size:11px;text-decoration:none;}
+.traffic-maps-btn:active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.traffic-footer{padding:6px 15px 10px;font-size:10px;color:var(--text-dim);border-top:1px solid var(--border);}
 </style>
 </head>
 <body>
@@ -1140,33 +1146,77 @@ function renderYcatBus(){
   +`<div class="bus-hint">所要 ${info.time}　※時刻は目安です。<a href="https://www.ycat.co.jp/route/" target="_blank" style="color:var(--accent)">公式サイト</a>で確認を</div>`;
 }
 
-/* ══ TRAFFIC ROUTES ══ */
-function renderTrafficRoutes(){
-  const routes=[
-    {icon:'🛣',name:'横浜横須賀道路',sub:'横浜〜逗子〜横須賀方面',
-      url:'https://www.e-nexco.co.jp/road_info/area_search/kanto/'},
-    {icon:'🛣',name:'首都高速湾岸線',sub:'横浜〜羽田〜東京（湾岸）',
-      url:'https://www.shutoko.jp/use/traffic/'},
-    {icon:'🛣',name:'首都高横羽線',sub:'横浜〜羽田〜東京（横羽）',
-      url:'https://www.shutoko.jp/use/traffic/'},
-    {icon:'🚗',name:'国道1号（東海道）',sub:'横浜〜川崎〜東京',
-      url:'https://www.jartic.or.jp/'},
-    {icon:'🚗',name:'国道16号',sub:'横浜環状・八王子方面',
-      url:'https://www.jartic.or.jp/'},
-    {icon:'🌊',name:'国道134号',sub:'逗子〜鎌倉〜江ノ島〜藤沢',
-      url:'https://www.jartic.or.jp/'},
-    {icon:'🗺',name:'リアルタイム渋滞マップ',sub:'Yahoo! カーナビ',
-      url:'https://map.yahoo.co.jp/v2/traffic'},
-    {icon:'📡',name:'JARTIC 道路交通情報',sub:'高速・国道の渋滞・規制情報',
-      url:'https://www.jartic.or.jp/'},
-  ];
-  document.getElementById('trafficBody').innerHTML=routes.map(r=>
-    `<a class="traffic-row" href="${r.url}" target="_blank">
-      <div class="traffic-icon">${r.icon}</div>
-      <div class="traffic-info"><div class="traffic-name">${r.name}</div><div class="traffic-sub">${r.sub}</div></div>
-      <div class="traffic-arrow">›</div>
-    </a>`
-  ).join('');
+/* ══ TRAFFIC TIME ══ */
+const TRAFFIC_CFG=[
+  {
+    from:'自宅（逗子）', to:'YCAT（横浜駅西口）',
+    fromIcon:'🏠', toIcon:'🚌',
+    normalMin:45,
+    mapsUrl:'https://www.google.com/maps/dir/?api=1&origin=35.2942,139.5779&destination=35.4663,139.6197&travelmode=driving',
+  },
+  {
+    from:'YCAT（横浜駅西口）', to:'羽田空港',
+    fromIcon:'🚌', toIcon:'✈️',
+    normalMin:30,
+    mapsUrl:'https://www.google.com/maps/dir/?api=1&origin=35.4663,139.6197&destination=35.5494,139.7798&travelmode=driving',
+  },
+];
+
+function getTrafficMult(){
+  const now=new Date();
+  const h=now.getHours()+now.getMinutes()/60;
+  const isWeekend=(now.getDay()===0||now.getDay()===6);
+  if(isWeekend){
+    if(h>=9&&h<18) return 1.30;
+    if(h>=18&&h<21) return 1.20;
+    return 1.00;
+  }
+  if(h>=7&&h<9.5) return 1.80;   // 平日朝ラッシュ
+  if(h>=17&&h<20) return 1.65;   // 平日夕方ラッシュ
+  if(h>=9.5&&h<11) return 1.15;
+  if(h>=20&&h<22) return 1.20;
+  if(h>=22||h<6) return 0.90;
+  return 1.00;
+}
+
+function renderTrafficTimes(){
+  const el=document.getElementById('trafficBody');
+  const mult=getTrafficMult();
+  const now=new Date();
+  const isWeekend=(now.getDay()===0||now.getDay()===6);
+
+  const blocks=TRAFFIC_CFG.map(r=>{
+    const cur=Math.round(r.normalMin*mult);
+    const diff=cur-r.normalMin;
+    const diffSign=diff>0?'+':'';
+    const diffColor=diff>15?'var(--danger)':diff>5?'var(--warn)':'var(--good)';
+    const icon=diff>15?'🔴':diff>5?'🟡':'🟢';
+    return`<div class="traffic-time-block">
+      <div class="traffic-route-label">
+        ${r.fromIcon} <strong>${r.from}</strong>
+        <span style="color:var(--text-dim)">→</span>
+        ${r.toIcon} <strong>${r.to}</strong>
+      </div>
+      <div class="traffic-cells">
+        <div class="traffic-cell">
+          <div class="traffic-cell-label">通常</div>
+          <div class="traffic-cell-val">${r.normalMin}<span class="traffic-cell-unit">分</span></div>
+        </div>
+        <div class="traffic-cell">
+          <div class="traffic-cell-label">現在推定</div>
+          <div class="traffic-cell-val">${cur}<span class="traffic-cell-unit">分</span></div>
+        </div>
+        <div class="traffic-cell" style="border:1px solid ${diffColor}44">
+          <div class="traffic-cell-label">差</div>
+          <div class="traffic-cell-val" style="color:${diffColor}">${diffSign}${diff}<span class="traffic-cell-unit">分</span></div>
+        </div>
+        <div class="traffic-status-icon">${icon}</div>
+      </div>
+      <a class="traffic-maps-btn" href="${r.mapsUrl}" target="_blank">Googleマップでリアルタイム確認 →</a>
+    </div>`;
+  }).join('');
+
+  el.innerHTML=blocks+`<div class="traffic-footer">${isWeekend?'土日祝':'平日'} ${fmtTime(now)} 時点の推定値（時間帯別パターン）</div>`;
 }
 
 /* ══ RADAR — RainViewer ══ */
@@ -1568,11 +1618,12 @@ async function init(){
   initCardResize();
   initDragDrop();
   setYcatDest(currentYcatDest);
-  renderTrafficRoutes();
+  renderTrafficTimes();
   await Promise.all([loadCalendar(), loadWeather(), loadRadar(), loadTrainDelay()]);
   updateFooter();
   setInterval(loadTrainDelay, 5*60*1000);
   setInterval(renderYcatBus, 60*1000);
+  setInterval(renderTrafficTimes, 60*1000);
 }
 
 document.getElementById('footer').addEventListener('click', async()=>{
@@ -1585,6 +1636,7 @@ document.getElementById('footer').addEventListener('click', async()=>{
     `<div class="loading-text"><span class="spinner"></span> 更新中…</div>`;
   await Promise.all([loadCalendar(), loadWeather(), loadRadar(), loadTrainDelay()]);
   renderYcatBus();
+  renderTrafficTimes();
   updateFooter();
 });
 
