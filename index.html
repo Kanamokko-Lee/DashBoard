@@ -506,6 +506,8 @@ body{
             <span class="drag-handle">⠿</span>
             <span class="card-icon">🚗</span>
             <span class="card-title">道路・渋滞情報</span>
+            <button class="cal-settings-btn" id="trafficSettingsBtn" onclick="showTrafficSetup()" title="APIキー設定">⚙</button>
+            <span class="cal-refresh" id="trafficRefresh"></span>
           </div>
           <div id="trafficBody"></div>
         </div>
@@ -1146,48 +1148,85 @@ function renderYcatBus(){
   +`<div class="bus-hint">所要 ${info.time}　※時刻は目安です。<a href="https://www.ycat.co.jp/route/" target="_blank" style="color:var(--accent)">公式サイト</a>で確認を</div>`;
 }
 
-/* ══ TRAFFIC TIME ══ */
+/* ══ TRAFFIC TIME (Google Maps リアルタイム) ══ */
+const GMAPS_KEY_STORE='gmaps_api_key';
 const TRAFFIC_CFG=[
   {
     from:'自宅（逗子）', to:'YCAT（横浜駅西口）',
     fromIcon:'🏠', toIcon:'🚌',
-    normalMin:45,
+    origin:{lat:35.2942,lng:139.5779},
+    dest:{lat:35.4663,lng:139.6197},
     mapsUrl:'https://www.google.com/maps/dir/?api=1&origin=35.2942,139.5779&destination=35.4663,139.6197&travelmode=driving',
   },
   {
     from:'YCAT（横浜駅西口）', to:'羽田空港',
     fromIcon:'🚌', toIcon:'✈️',
-    normalMin:30,
+    origin:{lat:35.4663,lng:139.6197},
+    dest:{lat:35.5494,lng:139.7798},
     mapsUrl:'https://www.google.com/maps/dir/?api=1&origin=35.4663,139.6197&destination=35.5494,139.7798&travelmode=driving',
   },
 ];
 
-function getTrafficMult(){
-  const now=new Date();
-  const h=now.getHours()+now.getMinutes()/60;
-  const isWeekend=(now.getDay()===0||now.getDay()===6);
-  if(isWeekend){
-    if(h>=9&&h<18) return 1.30;
-    if(h>=18&&h<21) return 1.20;
-    return 1.00;
-  }
-  if(h>=7&&h<9.5) return 1.80;   // 平日朝ラッシュ
-  if(h>=17&&h<20) return 1.65;   // 平日夕方ラッシュ
-  if(h>=9.5&&h<11) return 1.15;
-  if(h>=20&&h<22) return 1.20;
-  if(h>=22||h<6) return 0.90;
-  return 1.00;
+function getGMapsKey(){return localStorage.getItem(GMAPS_KEY_STORE)||'';}
+
+let gmapsScriptLoaded=false;
+function loadGMapsScript(apiKey){
+  return new Promise((resolve,reject)=>{
+    if(gmapsScriptLoaded&&window.google?.maps){resolve();return;}
+    const existing=document.getElementById('gmaps-script');
+    if(existing) existing.remove();
+    const s=document.createElement('script');
+    s.id='gmaps-script';
+    s.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&language=ja`;
+    s.onload=()=>{gmapsScriptLoaded=true;resolve();};
+    s.onerror=()=>reject(new Error('load_failed'));
+    document.head.appendChild(s);
+  });
 }
 
-function renderTrafficTimes(){
+async function fetchTrafficData(){
+  const key=getGMapsKey();
+  if(!key){showTrafficSetup();return;}
   const el=document.getElementById('trafficBody');
-  const mult=getTrafficMult();
-  const now=new Date();
-  const isWeekend=(now.getDay()===0||now.getDay()===6);
+  el.innerHTML=`<div class="loading-text"><span class="spinner"></span> Googleマップから取得中…</div>`;
+  try{
+    await loadGMapsScript(key);
+    const svc=new google.maps.DistanceMatrixService();
+    const results=await Promise.all(TRAFFIC_CFG.map(r=>new Promise((resolve,reject)=>{
+      svc.getDistanceMatrix({
+        origins:[r.origin],
+        destinations:[r.dest],
+        travelMode:google.maps.TravelMode.DRIVING,
+        drivingOptions:{departureTime:new Date(),trafficModel:google.maps.TrafficModel.BEST_GUESS},
+        language:'ja',
+      },(resp,status)=>{
+        if(status==='OK') resolve(resp.rows[0].elements[0]);
+        else reject(status);
+      });
+    })));
+    renderTrafficTimes(results);
+    document.getElementById('trafficRefresh').textContent=fmtTime(new Date());
+  }catch(e){
+    const msg=String(e);
+    if(msg.includes('load_failed')||msg.includes('InvalidKey')||msg.includes('ApiNotActivated')){
+      el.innerHTML=`<div class="gcal-setup">
+        <p style="color:var(--warn)">⚠ APIキーが無効か、APIが未有効化です</p>
+        <button class="gcal-signin-btn" onclick="showTrafficSetup()">APIキーを再設定</button>
+      </div>`;
+    }else{
+      el.innerHTML=`<div class="no-events">取得エラー。時間をおいて再試行してください。</div>`;
+    }
+  }
+}
 
-  const blocks=TRAFFIC_CFG.map(r=>{
-    const cur=Math.round(r.normalMin*mult);
-    const diff=cur-r.normalMin;
+function renderTrafficTimes(results){
+  const el=document.getElementById('trafficBody');
+  const now=new Date();
+  const blocks=TRAFFIC_CFG.map((r,i)=>{
+    const elem=results[i];
+    const normalMin=Math.round((elem.duration?.value||0)/60);
+    const currentMin=Math.round((elem.duration_in_traffic?.value||elem.duration?.value||0)/60);
+    const diff=currentMin-normalMin;
     const diffSign=diff>0?'+':'';
     const diffColor=diff>15?'var(--danger)':diff>5?'var(--warn)':'var(--good)';
     const icon=diff>15?'🔴':diff>5?'🟡':'🟢';
@@ -1200,11 +1239,11 @@ function renderTrafficTimes(){
       <div class="traffic-cells">
         <div class="traffic-cell">
           <div class="traffic-cell-label">通常</div>
-          <div class="traffic-cell-val">${r.normalMin}<span class="traffic-cell-unit">分</span></div>
+          <div class="traffic-cell-val">${normalMin}<span class="traffic-cell-unit">分</span></div>
         </div>
         <div class="traffic-cell">
-          <div class="traffic-cell-label">現在推定</div>
-          <div class="traffic-cell-val">${cur}<span class="traffic-cell-unit">分</span></div>
+          <div class="traffic-cell-label">現在</div>
+          <div class="traffic-cell-val">${currentMin}<span class="traffic-cell-unit">分</span></div>
         </div>
         <div class="traffic-cell" style="border:1px solid ${diffColor}44">
           <div class="traffic-cell-label">差</div>
@@ -1212,11 +1251,32 @@ function renderTrafficTimes(){
         </div>
         <div class="traffic-status-icon">${icon}</div>
       </div>
-      <a class="traffic-maps-btn" href="${r.mapsUrl}" target="_blank">Googleマップでリアルタイム確認 →</a>
+      <a class="traffic-maps-btn" href="${r.mapsUrl}" target="_blank">Googleマップで詳細確認 →</a>
     </div>`;
-  }).join('');
+  }).join('<div style="height:1px;background:var(--border);margin:0 15px"></div>');
+  el.innerHTML=blocks+`<div class="traffic-footer">Googleマップ リアルタイム交通情報 — ${fmtTime(now)} 更新</div>`;
+}
 
-  el.innerHTML=blocks+`<div class="traffic-footer">${isWeekend?'土日祝':'平日'} ${fmtTime(now)} 時点の推定値（時間帯別パターン）</div>`;
+function showTrafficSetup(){
+  const key=getGMapsKey();
+  document.getElementById('trafficBody').innerHTML=`
+    <div class="gcal-setup">
+      <p>Google Maps APIキーを入力してください。<br>
+      <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--accent)">Google Cloud Console</a> で取得し、<b>Maps JavaScript API</b> と <b>Distance Matrix API</b> を有効化してください。</p>
+      <div class="gcal-input-row">
+        <input class="gcal-input" id="gmapsKeyInput" type="text" placeholder="AIzaSy..." value="${key}">
+        <button class="gcal-save-btn" onclick="saveGMapsKeyAndLoad()">保存</button>
+      </div>
+      <div class="gcal-id-hint">※ APIキーはこのブラウザにのみ保存されます<br>※ 個人利用なら無料枠（月$200クレジット）で十分です</div>
+    </div>`;
+}
+
+function saveGMapsKeyAndLoad(){
+  const val=(document.getElementById('gmapsKeyInput')?.value||'').trim();
+  if(!val) return;
+  localStorage.setItem(GMAPS_KEY_STORE,val);
+  gmapsScriptLoaded=false;
+  fetchTrafficData();
 }
 
 /* ══ RADAR — RainViewer ══ */
@@ -1618,12 +1678,11 @@ async function init(){
   initCardResize();
   initDragDrop();
   setYcatDest(currentYcatDest);
-  renderTrafficTimes();
-  await Promise.all([loadCalendar(), loadWeather(), loadRadar(), loadTrainDelay()]);
+  await Promise.all([loadCalendar(), loadWeather(), loadRadar(), loadTrainDelay(), fetchTrafficData()]);
   updateFooter();
   setInterval(loadTrainDelay, 5*60*1000);
   setInterval(renderYcatBus, 60*1000);
-  setInterval(renderTrafficTimes, 60*1000);
+  setInterval(fetchTrafficData, 5*60*1000);
 }
 
 document.getElementById('footer').addEventListener('click', async()=>{
@@ -1634,9 +1693,8 @@ document.getElementById('footer').addEventListener('click', async()=>{
   document.getElementById('weatherSummary').innerHTML='';
   document.getElementById('trainBody').innerHTML=
     `<div class="loading-text"><span class="spinner"></span> 更新中…</div>`;
-  await Promise.all([loadCalendar(), loadWeather(), loadRadar(), loadTrainDelay()]);
+  await Promise.all([loadCalendar(), loadWeather(), loadRadar(), loadTrainDelay(), fetchTrafficData()]);
   renderYcatBus();
-  renderTrafficTimes();
   updateFooter();
 });
 
