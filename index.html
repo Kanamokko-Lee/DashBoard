@@ -402,6 +402,16 @@ body{
 /* ── FOOTER ── */
 .footer{text-align:center;padding:5px 14px 14px;font-size:10px;color:var(--text-dim);cursor:pointer;line-height:1.6;}
 
+/* ── LAYOUT COLUMN CONTROLS ── */
+.layout-controls{display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:0 4px 8px;}
+.layout-label{font-size:10px;color:var(--text-dim);margin-right:2px;}
+.col-btn{padding:2px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text-sub);font-size:11px;font-weight:500;cursor:pointer;transition:background 0.15s,color 0.15s;}
+.col-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.col-btn:active{opacity:0.8;}
+/* 列数ごとに col-2 の表示を制御 */
+.col-count-1 #col-1,.col-count-1 #col-2{display:none;}
+.col-count-2 #col-2{display:none;}
+
 /* ── LOC BUTTONS (YCAT dest など) ── */
 .loc-row{display:flex;gap:5px;align-items:center;padding:7px 15px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
 .loc-btn{padding:3px 11px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);color:var(--text-sub);font-size:11px;cursor:pointer;white-space:nowrap;transition:background 0.15s,color 0.15s,border-color 0.15s;}
@@ -466,6 +476,12 @@ body{
 
 <!-- COLUMN GRID -->
 <div class="grid-area">
+  <div class="layout-controls">
+    <span class="layout-label">列数</span>
+    <button class="col-btn" id="colBtn1" onclick="setColCount(1)">1</button>
+    <button class="col-btn" id="colBtn2" onclick="setColCount(2)">2</button>
+    <button class="col-btn" id="colBtn3" onclick="setColCount(3)">3</button>
+  </div>
   <div class="columns" id="columnsRoot">
 
     <!-- 左列 -->
@@ -611,6 +627,8 @@ body{
       </div>
 
     </div><!-- /col-1 -->
+
+    <div class="column" id="col-2"></div><!-- /col-2 -->
 
   </div><!-- /columns -->
 </div><!-- /grid-area -->
@@ -1773,10 +1791,10 @@ function initDragDrop(){
       const targetCol=target.closest('.column');
       if(before) targetCol.insertBefore(dragW,target);
       else       targetCol.insertBefore(dragW,target.nextSibling);
-      dragW.dataset.col=targetCol.id==='col-0'?'0':'1';
+      dragW.dataset.col=targetCol.id.replace('col-','');
     } else if(col&&!target){
       col.appendChild(dragW);
-      dragW.dataset.col=col.id==='col-0'?'0':'1';
+      dragW.dataset.col=col.id.replace('col-','');
     } else {clearDragOver();return;}
     clearDragOver(); saveLayout();
     if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
@@ -1846,7 +1864,7 @@ function initDragDrop(){
         const col=target.closest('.column');
         if(before) col.insertBefore(tSrc,target);
         else       col.insertBefore(tSrc,target.nextSibling);
-        tSrc.dataset.col=col.id==='col-0'?'0':'1';
+        tSrc.dataset.col=col.id.replace('col-','');
         saveLayout();
         if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
       }
@@ -1859,7 +1877,36 @@ function initDragDrop(){
 }
 
 /* ── レイアウト保存/復元 ── */
-const LAYOUT_KEY='dashboard_layout_v3';
+/* ── 列数管理 ── */
+let colCount=parseInt(localStorage.getItem('col_count')||'2');
+function applyColCount(n){
+  if(n!==undefined) colCount=n;
+  const root=document.getElementById('columnsRoot');
+  root.className=`columns col-count-${colCount}`;
+  for(let i=1;i<=3;i++){
+    const b=document.getElementById(`colBtn${i}`);
+    if(b) b.classList.toggle('active',i===colCount);
+  }
+  if(radarMap) setTimeout(()=>radarMap.invalidateSize(),100);
+}
+function setColCount(n){
+  // 列を減らす場合、はみ出したウィジェットを最後の列に移す
+  for(let c=n;c<=2;c++){
+    const fromCol=document.getElementById(`col-${c}`);
+    const toCol=document.getElementById(`col-${n-1}`);
+    if(fromCol&&toCol){
+      [...fromCol.querySelectorAll('.widget')].forEach(w=>{
+        toCol.appendChild(w);
+        w.dataset.col=String(n-1);
+      });
+    }
+  }
+  localStorage.setItem('col_count',String(n));
+  applyColCount(n);
+  saveLayout();
+}
+
+const LAYOUT_KEY='dashboard_layout_v4';
 function saveLayout(){
   const layout=[];
   document.querySelectorAll('.column').forEach((col,ci)=>{
@@ -1874,7 +1921,11 @@ function restoreLayout(){
   if(!saved)return;
   try{
     const layout=JSON.parse(saved);
-    const cols=[document.getElementById('col-0'),document.getElementById('col-1')];
+    const cols=[
+      document.getElementById('col-0'),
+      document.getElementById('col-1'),
+      document.getElementById('col-2'),
+    ];
     layout.forEach(({id,col,hidden})=>{
       const el=document.getElementById(id);
       if(!el)return;
@@ -1897,6 +1948,7 @@ async function init(){
   const hadCodeParam = new URLSearchParams(location.search).has('code') || new URLSearchParams(location.search).has('error');
   const redirectResult=await gcalHandleRedirect(); // true=成功 / false=エラー or 何もなし
   restoreLayout();
+  applyColCount();
   initCardResize();
   initDragDrop();
 
