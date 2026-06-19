@@ -402,6 +402,17 @@ body{
 /* ── FOOTER ── */
 .footer{text-align:center;padding:5px 14px 14px;font-size:10px;color:var(--text-dim);cursor:pointer;line-height:1.6;}
 
+/* ── LOC BUTTONS (YCAT dest など) ── */
+.loc-row{display:flex;gap:5px;align-items:center;padding:7px 15px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.loc-btn{padding:3px 11px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);color:var(--text-sub);font-size:11px;cursor:pointer;white-space:nowrap;transition:background 0.15s,color 0.15s,border-color 0.15s;}
+.loc-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.loc-btn:active{opacity:0.7;}
+
+/* ── CARD RESIZE HANDLE ── */
+.card-resize-handle{position:absolute;bottom:0;left:0;right:0;height:10px;cursor:s-resize;z-index:5;}
+.card-resize-handle::after{content:'';position:absolute;bottom:0;left:5%;right:5%;height:2px;background:var(--border);border-radius:1px;transition:background 0.15s;}
+.card-resize-handle:hover::after,.card-resize-handle.resizing::after{background:var(--accent);}
+
 /* ── TRAIN STATUS ── */
 .train-settings-panel{display:none;padding:8px 15px;border-bottom:1px solid var(--border);background:var(--surface2);}
 .train-settings-panel.open{display:block;}
@@ -460,7 +471,7 @@ body{
     <!-- 左列 -->
     <div class="column" id="col-0">
 
-      <div class="widget" id="w-weather" data-col="0">
+      <div class="widget" id="w-weather" data-col="0" draggable="true">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
@@ -476,7 +487,7 @@ body{
         </div>
       </div>
 
-      <div class="widget" id="w-cal" data-col="0">
+      <div class="widget" id="w-cal" data-col="0" draggable="true">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
@@ -501,7 +512,7 @@ body{
         </div>
       </div>
 
-      <div class="widget" id="w-transport" data-col="0">
+      <div class="widget" id="w-transport" data-col="0" draggable="true">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
@@ -571,7 +582,7 @@ body{
     <!-- 右列 -->
     <div class="column" id="col-1">
 
-      <div class="widget" id="w-radar" data-col="1">
+      <div class="widget" id="w-radar" data-col="1" draggable="true">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
@@ -1463,11 +1474,11 @@ async function loadTrainDelay(){
   try{
     const r=await fetch('https://rti-giken.jp/fhc/api/train_tetsudo/delay.json');
     trainDelayCache=await r.json();
-    renderTrainBody(trainDelayCache);
-    document.getElementById('trainRefresh').textContent=fmtTime(new Date());
   }catch(e){
-    document.getElementById('trainBody').innerHTML=`<div class="no-events">取得エラー</div>`;
+    // 失敗してもキャッシュ（空=遅延なし）で表示
   }
+  renderTrainBody(trainDelayCache);
+  document.getElementById('trainRefresh').textContent=fmtTime(new Date());
 }
 function renderTrainBody(delayed){
   const sel=getSelTrainLines();
@@ -1654,20 +1665,23 @@ async function loadRadar(){
   }
   if(radarLayer){radarMap.removeLayer(radarLayer);radarLayer=null;}
   try{
-    const ts=await(await fetch('https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json')).json();
-    const vt=ts[0]?.validtime||ts[0]?.basetime||'';
-    let label='更新時刻不明';
-    if(vt.length>=13){
-      const utc=new Date(`${vt.slice(0,4)}-${vt.slice(4,6)}-${vt.slice(6,8)}T${vt.slice(9,11)}:${vt.slice(11,13)}:00Z`);
-      const jst=new Date(utc.getTime()+9*3600000);
-      label=`${String(jst.getUTCHours()).padStart(2,'0')}:${String(jst.getUTCMinutes()).padStart(2,'0')} JST`;
-    }
-    document.getElementById('radarTimePill').textContent=`気象庁ナウキャスト ${label}`;
+    const resp=await fetch('https://api.rainviewer.com/public/weather-maps.json');
+    const data=await resp.json();
+    const frames=data.radar?.past;
+    if(!frames||!frames.length) throw new Error('no frames');
+    const latest=frames[frames.length-1];
+    const dt=new Date(latest.time*1000);
+    const hh=String(dt.getHours()).padStart(2,'0');
+    const mm=String(dt.getMinutes()).padStart(2,'0');
+    document.getElementById('radarTimePill').textContent=`🌧 ${hh}:${mm} (RainViewer)`;
     radarLayer=L.tileLayer(
-      `https://www.jma.go.jp/bosai/jmatile/data/nowc/${vt}/none/{z}/{x}/{y}/surf/hrpns.png`,
-      {opacity:0.75,maxZoom:10,attribution:'気象庁 降水ナウキャスト'}
+      `${data.host}${latest.path}/256/{z}/{x}/{y}/6/1_1.png`,
+      {opacity:0.6,maxZoom:12,attribution:'RainViewer'}
     ).addTo(radarMap);
-  }catch(e){document.getElementById('radarTimePill').textContent='取得失敗';console.error(e);}
+  }catch(e){
+    document.getElementById('radarTimePill').textContent='取得失敗';
+    console.error(e);
+  }
 }
 
 /* ══════════════════════════════════════
@@ -1677,7 +1691,48 @@ async function loadRadar(){
    - 別の列へ：列を移動
    iOS Touch にも対応
 ══════════════════════════════════════ */
-let dragW=null; // ドラッグ中ウィジェット
+/* ══ CARD RESIZE ══ */
+function initCardResize(){
+  const SIZES_KEY='card_sizes_v2';
+  const saved=JSON.parse(localStorage.getItem(SIZES_KEY)||'{}');
+  document.querySelectorAll('.widget').forEach(widget=>{
+    const id=widget.id;
+    if(saved[id]) widget.style.minHeight=saved[id]+'px';
+    const handle=document.createElement('div');
+    handle.className='card-resize-handle';
+    handle.title='ドラッグで高さ変更';
+    widget.appendChild(handle);
+    let isResizing=false,startY=0,startH=0;
+    function onStart(clientY){
+      isResizing=true;startY=clientY;startH=widget.getBoundingClientRect().height;
+      handle.classList.add('resizing');
+      document.body.style.cursor='s-resize';
+      document.body.style.userSelect='none';
+    }
+    function onMove(clientY){
+      if(!isResizing)return;
+      widget.style.minHeight=Math.max(80,startH+(clientY-startY))+'px';
+      if(radarMap&&id==='w-radar') radarMap.invalidateSize();
+    }
+    function onEnd(){
+      if(!isResizing)return;
+      isResizing=false;handle.classList.remove('resizing');
+      document.body.style.cursor='';document.body.style.userSelect='';
+      const sizes=JSON.parse(localStorage.getItem(SIZES_KEY)||'{}');
+      sizes[id]=Math.round(widget.getBoundingClientRect().height);
+      localStorage.setItem(SIZES_KEY,JSON.stringify(sizes));
+      if(radarMap&&id==='w-radar') setTimeout(()=>radarMap.invalidateSize(),60);
+    }
+    handle.addEventListener('mousedown',e=>{onStart(e.clientY);e.preventDefault();e.stopPropagation();});
+    document.addEventListener('mousemove',e=>onMove(e.clientY));
+    document.addEventListener('mouseup',onEnd);
+    handle.addEventListener('touchstart',e=>{onStart(e.touches[0].clientY);e.stopPropagation();},{passive:true});
+    handle.addEventListener('touchmove',e=>{onMove(e.touches[0].clientY);e.preventDefault();},{passive:false});
+    handle.addEventListener('touchend',onEnd);
+  });
+}
+
+let dragW=null;
 
 function initDragDrop(){
   const root=document.getElementById('columnsRoot');
@@ -1709,14 +1764,20 @@ function initDragDrop(){
   });
   root.addEventListener('drop',e=>{
     e.preventDefault();
+    if(!dragW){clearDragOver();return;}
     const target=e.target.closest('.widget');
-    if(!target||!dragW||target===dragW){clearDragOver();return;}
-    const rect=target.getBoundingClientRect();
-    const before=e.clientY<rect.top+rect.height/2;
-    const col=target.closest('.column');
-    if(before) col.insertBefore(dragW,target);
-    else       col.insertBefore(dragW,target.nextSibling);
-    dragW.dataset.col=col.id==='col-0'?'0':'1';
+    const col=e.target.closest('.column');
+    if(target&&target!==dragW){
+      const rect=target.getBoundingClientRect();
+      const before=e.clientY<rect.top+rect.height/2;
+      const targetCol=target.closest('.column');
+      if(before) targetCol.insertBefore(dragW,target);
+      else       targetCol.insertBefore(dragW,target.nextSibling);
+      dragW.dataset.col=targetCol.id==='col-0'?'0':'1';
+    } else if(col&&!target){
+      col.appendChild(dragW);
+      dragW.dataset.col=col.id==='col-0'?'0':'1';
+    } else {clearDragOver();return;}
     clearDragOver(); saveLayout();
     if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
   });
@@ -1836,6 +1897,7 @@ async function init(){
   const hadCodeParam = new URLSearchParams(location.search).has('code') || new URLSearchParams(location.search).has('error');
   const redirectResult=await gcalHandleRedirect(); // true=成功 / false=エラー or 何もなし
   restoreLayout();
+  initCardResize();
   initDragDrop();
 
   // 保存済みの表示モードをタブUIに反映
