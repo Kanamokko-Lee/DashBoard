@@ -54,7 +54,6 @@ body{
 .date-line{font-size:13px;color:var(--text-sub);margin-top:3px;}
 .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
 .weather-temp-big{font-size:42px;font-weight:200;line-height:1;letter-spacing:-1px;}
-.weather-loc-label{font-size:11px;color:var(--accent2);text-align:right;font-weight:500;}
 .weather-desc{font-size:12px;color:var(--text-sub);text-align:right;}
 
 /* ── RUNWAY ── */
@@ -66,67 +65,257 @@ body{
 }
 .runway::before{left:22px;} .runway::after{right:22px;transform:rotate(180deg);}
 
-/* ── GRID ── */
+/* ══════════════════════════════════════
+   MASONRY-STYLE COLUMN LAYOUT
+   grid-area → 2列のFlexbox縦積み。
+   ウィジェットのdata-col属性で左(0)/右(1)を管理。
+   ドラッグで列と順番を変更できる。
+══════════════════════════════════════ */
 .grid-area{flex:1;padding:6px 10px 20px;}
-.columns{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;}
-.widget{flex:0 0 calc(50% - 6px);min-width:220px;}
-@media(max-width:600px){.widget{flex:0 0 100%!important;}}
 
-/* ── WIDGET ── */
-.widget{position:relative;cursor:default;touch-action:pan-y;}
+.columns{
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+}
+
+.column{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  min-width:0;
+}
+
+/* single-column mode under 600px */
+@media(max-width:600px){
+  .columns{flex-direction:column;}
+  .column{width:100%;}
+}
+
+/* ── WIDGET WRAPPER ── */
+.widget{
+  position:relative;
+  cursor:default;
+  touch-action:pan-y;
+}
 .widget.dragging{opacity:0.4;}
-.widget.drag-over-left{border-left:3px solid var(--accent);border-radius:3px 0 0 3px;}
-.widget.drag-over-right{border-right:3px solid var(--accent);border-radius:0 3px 3px 0;}
+.widget.drag-over-top{
+  border-top:3px solid var(--accent);
+  border-radius:3px 3px 0 0;
+}
+.widget.drag-over-bottom{
+  border-bottom:3px solid var(--accent);
+}
 
 /* ── CARD ── */
-.card{background:var(--surface);border-radius:14px;border:1px solid var(--border);overflow:hidden;}
+.card{
+  background:var(--surface); border-radius:14px;
+  border:1px solid var(--border); overflow:hidden;
+}
 .card-header{
-  display:flex;align-items:center;gap:6px;
-  padding:11px 15px 9px;border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:6px;
+  padding:11px 15px 9px; border-bottom:1px solid var(--border);
   cursor:grab;
 }
 .card-header:active{cursor:grabbing;}
 .drag-handle{color:var(--text-dim);font-size:13px;padding-right:4px;cursor:grab;}
 .card-icon{font-size:14px;opacity:0.8;}
-.card-title{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-sub);}
+.card-title{
+  font-size:10px;font-weight:700;letter-spacing:0.12em;
+  text-transform:uppercase;color:var(--text-sub);
+}
+.card-refresh{margin-left:auto;font-size:10px;color:var(--text-dim);}
 
-/* ── LOCATION PICKER ── */
-.loc-row{
-  display:flex;gap:5px;align-items:center;
-  padding:7px 15px;border-bottom:1px solid var(--border);flex-wrap:wrap;
+/* ── SCHEDULE ── */
+.schedule-body{padding:8px 0 4px;}
+
+/* 終日予定（バー形式、上部にまとめる） */
+.allday-bar{
+  display:flex;align-items:center;gap:8px;
+  margin:0 15px 8px;padding:7px 12px;border-radius:9px;
+  background:var(--surface2);
 }
-.loc-btn{
-  padding:3px 11px;border-radius:12px;border:1px solid var(--border);
-  background:var(--surface2);color:var(--text-sub);
-  font-size:11px;cursor:pointer;white-space:nowrap;
-  transition:background 0.15s,color 0.15s,border-color 0.15s;
+.allday-bar .ab-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.allday-bar .ab-title{font-size:12px;font-weight:500;color:var(--text-sub);}
+
+/* 次の予定 強調ヒーローカード */
+.next-event-hero{
+  margin:0 15px 12px;padding:16px;border-radius:14px;
+  background:linear-gradient(135deg,var(--accent) 0%,#2e6fd9 100%);
+  color:#fff;position:relative;overflow:hidden;
 }
-.loc-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-.loc-btn:active{opacity:0.7;}
-.loc-custom-wrap{border-bottom:1px solid var(--border);}
-.loc-custom-row{display:flex;gap:6px;padding:8px 15px;}
-.loc-input{
-  flex:1;padding:7px 10px;border-radius:8px;
+.next-event-hero.is-flight{
+  background:linear-gradient(135deg,#ff6b2b 0%,#d9491a 100%);
+}
+.next-event-hero.is-soon{
+  animation:heroGlow 2s ease-in-out infinite;
+}
+@keyframes heroGlow{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,107,43,0.4);}
+  50%{box-shadow:0 0 0 8px rgba(255,107,43,0);}
+}
+.hero-label{font-size:10px;font-weight:700;letter-spacing:0.1em;opacity:0.85;text-transform:uppercase;}
+.hero-countdown{font-size:34px;font-weight:200;letter-spacing:-1px;line-height:1.1;margin-top:2px;}
+.hero-countdown .hero-unit{font-size:16px;font-weight:400;margin-left:3px;}
+.hero-title{font-size:15px;font-weight:600;margin-top:6px;line-height:1.3;}
+.hero-meta{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;opacity:0.9;}
+.hero-icon{font-size:20px;position:absolute;top:14px;right:16px;opacity:0.5;}
+
+/* 通常の予定カード */
+.event-card{
+  display:flex;align-items:center;gap:11px;
+  margin:0 15px 7px;padding:10px 12px;border-radius:11px;
+  background:var(--surface2);
+}
+.event-card:last-child{margin-bottom:4px;}
+.ec-time-col{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-width:42px;
+}
+.ec-time{font-size:12px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.2;}
+.ec-time-end{font-size:10px;color:var(--text-dim);font-variant-numeric:tabular-nums;}
+.ec-bar{width:3px;border-radius:2px;align-self:stretch;min-height:28px;flex-shrink:0;}
+.ec-info{flex:1;min-width:0;}
+.ec-title{font-size:13.5px;font-weight:500;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ec-loc{font-size:11px;color:var(--text-sub);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ec-flight-icon{font-size:16px;flex-shrink:0;}
+.event-badge{font-size:9px;padding:2px 6px;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;white-space:nowrap;flex-shrink:0;}
+.event-badge.flight{background:#ff6b2b;}
+
+.no-events{padding:20px 15px;color:var(--text-dim);font-size:13px;text-align:center;}
+.loading-text{padding:16px 15px;color:var(--text-sub);font-size:12px;text-align:center;animation:pulse 1.4s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:0.4;}50%{opacity:1;}}
+
+
+/* ── GCAL SETUP UI ── */
+.gcal-setup{padding:14px 15px 16px;}
+.gcal-setup p{font-size:12px;color:var(--text-sub);margin-bottom:10px;line-height:1.5;}
+.gcal-input-row{display:flex;gap:8px;align-items:stretch;}
+.gcal-input{
+  flex:1;padding:9px 12px;border-radius:9px;
   background:var(--surface2);border:1px solid var(--border);
-  color:var(--text);font-size:12px;outline:none;-webkit-appearance:none;
-  user-select:text;-webkit-user-select:text;
+  color:var(--text);font-size:13px;outline:none;
+  -webkit-appearance:none;
 }
-.loc-input:focus{border-color:var(--accent);}
-.loc-input::placeholder{color:var(--text-dim);}
-.loc-search-btn{
-  padding:7px 12px;border-radius:8px;background:var(--accent);
-  color:#fff;font-size:12px;border:none;cursor:pointer;
+.gcal-input:focus{border-color:var(--accent);}
+.gcal-input::placeholder{color:var(--text-dim);}
+.gcal-save-btn{
+  padding:9px 14px;border-radius:9px;
+  background:var(--accent);color:#fff;
+  font-size:13px;font-weight:600;border:none;cursor:pointer;white-space:nowrap;
 }
-.loc-search-btn:active{opacity:0.8;}
-.loc-results{max-height:140px;overflow-y:auto;padding:4px 15px;}
-.loc-result-item{
-  padding:8px 0;border-bottom:1px solid var(--border);
-  font-size:12px;cursor:pointer;color:var(--text-sub);line-height:1.3;
+.gcal-save-btn:active{opacity:0.8;}
+.gcal-signin-btn{
+  display:block;margin-top:10px;padding:10px;border-radius:9px;
+  background:var(--accent);color:#fff;
+  text-align:center;font-size:13px;font-weight:600;cursor:pointer;border:none;width:100%;
 }
-.loc-result-item:last-child{border-bottom:none;}
-.loc-result-item:active{color:var(--accent);}
+.gcal-signin-btn:active{opacity:0.8;}
+.gcal-id-hint{margin-top:8px;font-size:11px;color:var(--text-dim);line-height:1.5;}
 
-/* ── WEATHER BODY ── */
+/* ── CALENDAR TOOLBAR（表示モード切替 + 設定ボタン） ── */
+.cal-toolbar{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 15px;border-bottom:1px solid var(--border);
+}
+.cal-mode-tabs{display:flex;gap:4px;background:var(--surface2);border-radius:9px;padding:3px;}
+.cal-mode-tab{
+  padding:5px 11px;border-radius:7px;font-size:11px;font-weight:600;
+  color:var(--text-sub);cursor:pointer;border:none;background:transparent;
+  white-space:nowrap;
+}
+.cal-mode-tab.active{background:var(--accent);color:#fff;}
+.cal-nav-btn{
+  width:26px;height:26px;border-radius:7px;border:none;background:var(--surface2);
+  color:var(--text-sub);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.cal-nav-btn:active{background:var(--border);}
+.cal-period-label{font-size:11px;color:var(--text-sub);flex:1;text-align:center;font-weight:600;}
+.cal-settings-btn{
+  width:26px;height:26px;border-radius:7px;border:none;background:var(--surface2);
+  color:var(--text-sub);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.cal-settings-btn:active{background:var(--border);}
+
+/* ── 設定モーダル（カレンダー選択） ── */
+.cal-modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.cal-modal{
+  background:var(--surface);border-radius:16px;border:1px solid var(--border);
+  width:100%;max-width:380px;max-height:80vh;overflow-y:auto;
+}
+.cal-modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:1px solid var(--border);
+}
+.cal-modal-title{font-size:13px;font-weight:700;}
+.cal-modal-close{
+  width:24px;height:24px;border-radius:50%;border:none;background:var(--surface2);
+  color:var(--text-sub);font-size:14px;cursor:pointer;
+}
+.cal-modal-body{padding:8px 0;}
+.cal-list-row{
+  display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;
+}
+.cal-list-row:active{background:var(--surface2);}
+.cal-list-checkbox{
+  width:18px;height:18px;border-radius:5px;border:2px solid var(--border);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:#fff;
+}
+.cal-list-checkbox.checked{border-color:transparent;}
+.cal-list-color{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+.cal-list-name{font-size:13px;flex:1;}
+.cal-modal-footer{padding:12px 16px;border-top:1px solid var(--border);}
+.cal-modal-apply-btn{
+  display:block;width:100%;padding:10px;border-radius:9px;border:none;
+  background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;
+}
+.cal-modal-apply-btn:active{opacity:0.8;}
+
+/* ── 週表示（Googleカレンダー風グリッド） ── */
+.week-view{padding:10px 12px 14px;overflow-x:auto;}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;min-width:560px;}
+.week-day-col{display:flex;flex-direction:column;gap:4px;min-height:140px;}
+.week-day-head{
+  text-align:center;font-size:10px;color:var(--text-sub);font-weight:600;
+  padding-bottom:4px;border-bottom:1px solid var(--border);
+}
+.week-day-head.today{color:var(--accent);}
+.week-day-num{font-size:14px;font-weight:300;margin-top:1px;}
+.week-event-block{
+  border-radius:5px;padding:3px 6px;font-size:10px;color:#fff;
+  line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  cursor:default;
+}
+.week-event-block.allday{opacity:0.85;}
+
+/* ── 月表示（Googleカレンダー風グリッド） ── */
+.month-view{padding:10px 12px 14px;}
+.month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.month-day-head{
+  text-align:center;font-size:10px;color:var(--text-dim);font-weight:600;padding-bottom:4px;
+}
+.month-cell{
+  min-height:62px;border-radius:6px;background:var(--surface2);
+  padding:3px 4px;display:flex;flex-direction:column;gap:2px;
+  border:1px solid transparent;
+}
+.month-cell.other-month{opacity:0.35;}
+.month-cell.today{border-color:var(--accent);}
+.month-cell-num{font-size:10px;color:var(--text-sub);font-weight:600;}
+.month-cell.today .month-cell-num{color:var(--accent);}
+.month-event-dot-row{display:flex;flex-direction:column;gap:1px;}
+.month-event-pill{
+  border-radius:3px;padding:1px 4px;font-size:8px;color:#fff;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4;
+}
+.month-event-more{font-size:8px;color:var(--text-dim);padding-left:4px;}
+
+/* ── WEATHER ── */
 .weather-body{padding:11px 15px;}
 .weather-hourly{display:flex;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
 .weather-hourly::-webkit-scrollbar{display:none;}
@@ -140,86 +329,6 @@ body{
 .weather-stat-label{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.07em;}
 .weather-stat-val{font-size:14px;font-weight:500;}
 
-/* ── CALENDAR HEADER CONTROLS ── */
-.cal-nav{display:flex;align-items:center;gap:3px;margin-left:auto;}
-.cal-nav-btn{
-  width:22px;height:22px;border-radius:6px;border:1px solid var(--border);
-  background:var(--surface2);color:var(--text-sub);
-  font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;
-}
-.cal-nav-btn:active{background:var(--accent);border-color:var(--accent);color:#fff;}
-.cal-date-label{
-  font-size:11px;color:var(--text);white-space:nowrap;cursor:pointer;
-  padding:2px 5px;border-radius:5px;
-}
-.cal-date-label.is-today{color:var(--accent);font-weight:600;}
-.cal-date-label:active{background:var(--surface2);}
-.cal-settings-btn{
-  width:22px;height:22px;border-radius:6px;border:1px solid var(--border);
-  background:var(--surface2);color:var(--text-sub);
-  font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  margin-left:4px;flex-shrink:0;
-}
-.cal-settings-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-.cal-refresh{font-size:10px;color:var(--text-dim);margin-left:2px;}
-
-/* ── CALENDAR SETTINGS PANEL ── */
-.cal-settings-panel{
-  display:none;padding:8px 15px;border-bottom:1px solid var(--border);
-  background:var(--surface2);
-}
-.cal-settings-panel.open{display:block;}
-.cal-check-row{
-  display:flex;align-items:center;gap:8px;
-  padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer;
-}
-.cal-check-row:last-child{border-bottom:none;}
-.cal-color-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-.cal-check-label{font-size:12px;flex:1;color:var(--text);}
-.cal-checkbox{width:14px;height:14px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;}
-
-/* ── SCHEDULE ── */
-.schedule-body{padding:5px 0;}
-.event-row{display:flex;align-items:flex-start;padding:8px 15px;gap:11px;}
-.event-time{font-size:11px;color:var(--text-sub);font-variant-numeric:tabular-nums;white-space:nowrap;padding-top:2px;min-width:46px;}
-.event-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);margin-top:5px;flex-shrink:0;}
-.event-dot.flight{background:var(--warn);}
-.event-dot.allday{background:var(--text-dim);}
-.event-info{flex:1;}
-.event-title{font-size:14px;font-weight:500;line-height:1.3;}
-.event-location{font-size:11px;color:var(--text-sub);margin-top:1px;}
-.event-badge{font-size:9px;padding:2px 6px;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;white-space:nowrap;align-self:center;}
-.event-badge.flight{background:#ff6b2b;}
-.no-events{padding:16px 15px;color:var(--text-dim);font-size:13px;text-align:center;}
-.loading-text{padding:16px 15px;color:var(--text-sub);font-size:12px;text-align:center;animation:pulse 1.4s ease-in-out infinite;}
-@keyframes pulse{0%,100%{opacity:0.4;}50%{opacity:1;}}
-
-/* ── GCAL SETUP ── */
-.gcal-setup{padding:14px 15px 16px;}
-.gcal-setup p{font-size:12px;color:var(--text-sub);margin-bottom:10px;line-height:1.5;}
-.gcal-input-row{display:flex;gap:8px;align-items:stretch;}
-.gcal-input{
-  flex:1;padding:9px 12px;border-radius:9px;
-  background:var(--surface2);border:1px solid var(--border);
-  color:var(--text);font-size:13px;outline:none;-webkit-appearance:none;
-  user-select:text;-webkit-user-select:text;
-}
-.gcal-input:focus{border-color:var(--accent);}
-.gcal-input::placeholder{color:var(--text-dim);}
-.gcal-save-btn{
-  padding:9px 14px;border-radius:9px;background:var(--accent);color:#fff;
-  font-size:13px;font-weight:600;border:none;cursor:pointer;white-space:nowrap;
-}
-.gcal-save-btn:active{opacity:0.8;}
-.gcal-signin-btn{
-  display:block;margin-top:10px;padding:10px;border-radius:9px;
-  background:var(--accent);color:#fff;
-  text-align:center;font-size:13px;font-weight:600;cursor:pointer;border:none;width:100%;
-}
-.gcal-signin-btn:active{opacity:0.8;}
-.gcal-id-hint{margin-top:8px;font-size:11px;color:var(--text-dim);line-height:1.5;}
-
 /* ── TRANSPORT ── */
 .transport-body{padding:6px 0;}
 .transport-row{display:flex;align-items:center;padding:8px 15px;gap:10px;border-bottom:1px solid var(--border);text-decoration:none;color:var(--text);}
@@ -230,13 +339,40 @@ body{
 .transport-sub{font-size:11px;color:var(--text-sub);margin-top:1px;}
 .transport-status{font-size:11px;font-weight:600;padding:2px 8px;border-radius:8px;}
 .status-check{background:#4a9eff22;color:var(--accent);}
+.status-ok{background:#26de8122;color:var(--good);}
+.status-warn{background:#ff9f4322;color:var(--warn);}
+.status-bad{background:#ff6b6b22;color:var(--danger);}
+
+/* ── YCAT ライブステータスカード ── */
+.ycat-card{
+  margin:8px 15px 4px;padding:12px 14px;border-radius:11px;
+  background:var(--surface2);display:flex;align-items:center;gap:12px;
+}
+.ycat-card.status-ok{background:linear-gradient(135deg,#26de8118,transparent);}
+.ycat-card.status-warn{background:linear-gradient(135deg,#ff9f4318,transparent);}
+.ycat-card.status-bad{background:linear-gradient(135deg,#ff6b6b18,transparent);}
+.ycat-icon{font-size:22px;flex-shrink:0;}
+.ycat-info{flex:1;min-width:0;}
+.ycat-route{font-size:10px;color:var(--text-dim);font-weight:600;letter-spacing:0.04em;}
+.ycat-status-label{font-size:13px;font-weight:600;margin-top:1px;}
+.ycat-detail{font-size:11px;color:var(--text-sub);margin-top:2px;line-height:1.4;}
+.ycat-minutes{
+  font-size:22px;font-weight:300;text-align:right;flex-shrink:0;line-height:1;
+}
+.ycat-minutes .ycat-unit{font-size:11px;font-weight:400;color:var(--text-sub);}
+.ycat-toggle-row{display:flex;gap:6px;padding:0 15px 6px;}
+.ycat-toggle-btn{
+  flex:1;padding:6px 0;border-radius:8px;border:none;background:var(--surface2);
+  color:var(--text-sub);font-size:11px;font-weight:600;cursor:pointer;
+}
+.ycat-toggle-btn.active{background:var(--accent);color:#fff;}
 
 /* ── RADAR ── */
 .radar-body{position:relative;}
 .radar-container{position:relative;width:100%;height:300px;}
 #radarMap{width:100%;height:100%;}
-.leaflet-control-attribution{font-size:8px!important;background:rgba(255,255,255,0.7)!important;color:rgba(0,0,0,0.5)!important;}
-.leaflet-control-attribution a{color:rgba(0,0,0,0.4)!important;}
+.leaflet-control-attribution{font-size:8px!important;background:rgba(0,0,0,0.5)!important;color:rgba(255,255,255,0.5)!important;}
+.leaflet-control-attribution a{color:rgba(255,255,255,0.4)!important;}
 .radar-float-btns{position:absolute;bottom:8px;left:8px;display:flex;gap:5px;z-index:1000;flex-wrap:wrap;}
 .radar-float-btn{
   display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:16px;
@@ -259,74 +395,6 @@ body{
 .legend-row{display:flex;align-items:center;gap:4px;font-size:10px;color:rgba(255,255,255,0.7);}
 .legend-swatch{width:14px;height:7px;border-radius:2px;}
 
-
-
-/* ── CARD RESIZE HANDLE ── */
-.widget{position:relative;}
-.card-resize-handle{
-  position:absolute;bottom:0;left:0;right:0;height:10px;
-  cursor:s-resize;z-index:5;
-}
-.card-resize-handle::after{
-  content:'';position:absolute;bottom:0;left:5%;right:5%;
-  height:2px;background:var(--border);border-radius:1px;
-  transition:background 0.15s;
-}
-.card-resize-handle:hover::after,.card-resize-handle.resizing::after{background:var(--accent);}
-/* 全画面スタイル */
-/* CSS全画面モード（ブラウザ内） */
-.widget-fullscreen{
-  position:fixed!important;inset:0!important;
-  width:100%!important;height:100vh!important;min-height:0!important;
-  z-index:9000!important;border-radius:0!important;
-}
-.widget-fullscreen>.card{
-  height:100vh!important;border-radius:0!important;
-  display:flex!important;flex-direction:column!important;overflow:hidden!important;
-}
-.widget-fullscreen .radar-body{flex:1!important;min-height:0!important;}
-.widget-fullscreen .radar-container{height:100%!important;}
-.widget-fullscreen #radarMap{height:100%!important;}
-
-
-/* ── CARD SIDE RESIZE HANDLE ── */
-.card-resize-h{
-  position:absolute;top:15%;bottom:15%;width:10px;cursor:ew-resize;z-index:6;
-}
-.card-resize-h.right{right:-5px;}
-.card-resize-h.left{left:-5px;}
-.card-resize-h::after{
-  content:'';position:absolute;top:0;bottom:0;left:4px;
-  width:2px;background:var(--border);border-radius:1px;
-  transition:background 0.15s;
-}
-.card-resize-h:hover::after,.card-resize-h.resizing::after{background:var(--accent);}
-
-/* ── COL RESIZER ── */
-.col-resizer{
-  width:16px;cursor:col-resize;position:relative;flex-shrink:0;
-}
-.col-resizer::after{
-  content:'';position:absolute;left:7px;top:24px;bottom:24px;
-  width:2px;background:var(--border);border-radius:1px;
-  transition:background 0.15s;
-}
-.col-resizer:hover::after,.col-resizer.resizing::after{background:var(--accent);}
-@media(max-width:600px){.col-resizer{display:none;}}
-
-/* ── MAP STYLE SELECTOR ── */
-.map-style-row{
-  display:flex;gap:5px;padding:6px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap;
-}
-.map-style-btn{
-  padding:2px 10px;border-radius:12px;border:1px solid var(--border);
-  background:var(--surface2);color:var(--text-sub);
-  font-size:11px;cursor:pointer;white-space:nowrap;
-  transition:background 0.15s,color 0.15s;
-}
-.map-style-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-.map-style-btn:active{opacity:0.7;}
-
 /* ── SPINNER ── */
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;}
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -346,8 +414,6 @@ body{
 .train-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;white-space:nowrap;}
 .badge-ok{background:#26de8122;color:var(--good);}
 .badge-delay{background:#ff6b6b22;color:var(--danger);}
-.train-src{font-size:9px;color:var(--text-dim);margin-top:2px;}
-
 /* ── YCAT BUS ── */
 .bus-row{display:flex;align-items:center;padding:7px 15px;gap:8px;border-bottom:1px solid var(--border);}
 .bus-row:last-child{border-bottom:none;}
@@ -355,7 +421,6 @@ body{
 .bus-until{font-size:11px;color:var(--accent);font-weight:600;min-width:65px;text-align:right;}
 .bus-next-label{font-size:9px;padding:2px 7px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;white-space:nowrap;}
 .bus-hint{padding:5px 15px 9px;font-size:10px;color:var(--text-dim);line-height:1.6;}
-
 /* ── TRAFFIC TIME ── */
 .traffic-time-block{padding:12px 15px;}
 .traffic-time-block+.traffic-time-block{border-top:1px solid var(--border);}
@@ -382,8 +447,7 @@ body{
   </div>
   <div class="header-right">
     <div class="weather-temp-big" id="headerTemp">--°</div>
-    <div class="weather-loc-label" id="headerLoc">--</div>
-    <div class="weather-desc" id="headerDesc">読込中…</div>
+    <div class="weather-desc"    id="headerDesc">読込中…</div>
   </div>
 </div>
 
@@ -393,33 +457,15 @@ body{
 <div class="grid-area">
   <div class="columns" id="columnsRoot">
 
-    <!-- 天気ウィジェット -->
-      <div class="widget" id="w-weather" draggable="true">
+    <!-- 左列 -->
+    <div class="column" id="col-0">
+
+      <div class="widget" id="w-weather" data-col="0">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
             <span class="card-icon">🌤</span>
-            <span class="card-title">天気予報</span>
-            <div class="cal-nav">
-              <button class="cal-nav-btn" onclick="weatherNav(-1)" title="前の日">◀</button>
-              <span class="cal-date-label" id="weatherDateLabel" onclick="weatherNavToday()">--</span>
-              <button class="cal-nav-btn" onclick="weatherNav(1)" title="次の日">▶</button>
-              <button class="cal-nav-btn" onclick="weatherNavToday()" title="今日" style="width:auto;padding:0 7px;font-size:10px;font-weight:600;">今日</button>
-            </div>
-          </div>
-          <!-- ロケーション選択 -->
-          <div class="loc-row" id="locRow">
-            <button class="loc-btn" id="locBtn0" onclick="setLocation(0)">逗子</button>
-            <button class="loc-btn" id="locBtn1" onclick="setLocation(1)">羽田</button>
-            <button class="loc-btn" id="locBtn2" onclick="setLocation(2)">横浜</button>
-            <button class="loc-btn" id="locBtnCustom" onclick="toggleCustomLoc()">📍 その他</button>
-          </div>
-          <div class="loc-custom-wrap" id="customLocWrap" style="display:none">
-            <div class="loc-custom-row">
-              <input class="loc-input" id="locSearchInput" type="text" placeholder="地名を入力…">
-              <button class="loc-search-btn" onclick="searchLocation()">検索</button>
-            </div>
-            <div class="loc-results" id="locResults"></div>
+            <span class="card-title">今日の天気予報</span>
           </div>
           <div class="weather-body">
             <div class="weather-hourly" id="weatherHourly">
@@ -430,60 +476,67 @@ body{
         </div>
       </div>
 
-      <!-- カレンダーウィジェット -->
-      <div class="widget" id="w-cal" draggable="true">
+      <div class="widget" id="w-cal" data-col="0">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
             <span class="card-icon">📋</span>
-            <span class="card-title">予定</span>
-            <!-- 日付ナビ -->
-            <div class="cal-nav">
-              <button class="cal-nav-btn" onclick="calNav(-1)" title="前の日">◀</button>
-              <span class="cal-date-label" id="calDateLabel" onclick="calNavToday()">--</span>
-              <button class="cal-nav-btn" onclick="calNav(1)" title="次の日">▶</button>
-              <button class="cal-nav-btn" onclick="calNavToday()" title="今日" style="width:auto;padding:0 7px;font-size:10px;font-weight:600;">今日</button>
-            </div>
-            <!-- カレンダー選択 -->
-            <button class="cal-settings-btn" id="calSettingsBtn" onclick="toggleCalSettings()" title="カレンダー選択">☰</button>
-            <span class="cal-refresh" id="calRefresh"></span>
+            <span class="card-title">今日の予定</span>
+            <span class="card-refresh" id="calRefresh"></span>
           </div>
-          <div class="cal-settings-panel" id="calSettingsPanel"></div>
+          <div class="cal-toolbar">
+            <div class="cal-mode-tabs">
+              <button class="cal-mode-tab active" data-mode="day" onclick="setCalMode('day')">日</button>
+              <button class="cal-mode-tab" data-mode="week" onclick="setCalMode('week')">週</button>
+              <button class="cal-mode-tab" data-mode="month" onclick="setCalMode('month')">月</button>
+            </div>
+            <button class="cal-nav-btn" onclick="navCal(-1)">‹</button>
+            <span class="cal-period-label" id="calPeriodLabel"></span>
+            <button class="cal-nav-btn" onclick="navCal(1)">›</button>
+            <button class="cal-settings-btn" onclick="openCalSettings()">⚙</button>
+          </div>
           <div id="scheduleBody">
             <div class="loading-text"><span class="spinner"></span> カレンダー読込中…</div>
           </div>
         </div>
       </div>
 
-      <!-- 交通情報ウィジェット -->
-      <div class="widget" id="w-transport" draggable="true" style="display:none">
+      <div class="widget" id="w-transport" data-col="0">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
             <span class="card-icon">🚃</span>
             <span class="card-title">交通・遅延情報</span>
+            <span class="card-refresh" id="ycatRefresh"></span>
+          </div>
+          <div class="ycat-toggle-row">
+            <button class="ycat-toggle-btn active" id="ycatDirYcat2Haneda" onclick="setYcatDir('ycat2haneda')">YCAT→羽田</button>
+            <button class="ycat-toggle-btn" id="ycatDirHaneda2Ycat" onclick="setYcatDir('haneda2ycat')">羽田→YCAT</button>
+          </div>
+          <div id="ycatStatusArea">
+            <div class="loading-text"><span class="spinner"></span> 取得中…</div>
           </div>
           <div class="transport-body" id="transportBody"></div>
         </div>
       </div>
 
-    <!-- 鉄道運行情報ウィジェット -->
-      <div class="widget" id="w-train" draggable="true">
+      <!-- 鉄道運行情報ウィジェット -->
+      <div class="widget" id="w-train" data-col="0" draggable="true">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
             <span class="card-icon">🚉</span>
             <span class="card-title">鉄道運行情報</span>
             <button class="cal-settings-btn" id="trainSettingsBtn" onclick="toggleTrainSettings()" title="路線選択">☰</button>
-            <span class="cal-refresh" id="trainRefresh"></span>
+            <span class="card-refresh" id="trainRefresh"></span>
           </div>
           <div class="train-settings-panel" id="trainSettingsPanel"></div>
           <div id="trainBody"><div class="loading-text"><span class="spinner"></span> 取得中…</div></div>
         </div>
       </div>
 
-    <!-- YCATバス時刻ウィジェット -->
-      <div class="widget" id="w-ycat" draggable="true">
+      <!-- YCATバス時刻ウィジェット -->
+      <div class="widget" id="w-ycat" data-col="0" draggable="true">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
@@ -495,60 +548,58 @@ body{
             <button class="loc-btn" id="ycatBtn-haneda" onclick="setYcatDest('haneda')">✈ 羽田空港</button>
             <button class="loc-btn" id="ycatBtn-narita" onclick="setYcatDest('narita')">✈ 成田空港</button>
           </div>
-          <div id="ycatBody"><div class="loading-text">計算中…</div></div>
+          <div id="ycatBusBody"><div class="loading-text">計算中…</div></div>
         </div>
       </div>
 
-    <!-- 道路渋滞情報ウィジェット -->
-      <div class="widget" id="w-traffic" draggable="true">
+      <!-- 道路渋滞情報ウィジェット -->
+      <div class="widget" id="w-traffic" data-col="0" draggable="true">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
             <span class="card-icon">🚗</span>
             <span class="card-title">道路・渋滞情報</span>
             <button class="cal-settings-btn" id="trafficSettingsBtn" onclick="showTrafficSetup()" title="APIキー設定">⚙</button>
-            <span class="cal-refresh" id="trafficRefresh"></span>
+            <span class="card-refresh" id="trafficRefresh"></span>
           </div>
           <div id="trafficBody"></div>
         </div>
       </div>
 
-    <!-- 雨雲レーダーウィジェット -->
-      <div class="widget" id="w-radar" draggable="true">
+    </div><!-- /col-0 -->
+
+    <!-- 右列 -->
+    <div class="column" id="col-1">
+
+      <div class="widget" id="w-radar" data-col="1">
         <div class="card">
           <div class="card-header">
             <span class="drag-handle">⠿</span>
             <span class="card-icon">🛰</span>
             <span class="card-title">雨雲レーダー</span>
-            <button class="cal-nav-btn" onclick="toggleRadarFullscreen()" title="全画面" style="margin-left:auto;font-size:13px;">⛶</button>
-          </div>
-          <div class="map-style-row">
-            <button class="map-style-btn" id="msBtn0" onclick="setMapStyle(0)">🗺 地図</button>
-            <button class="map-style-btn" id="msBtn1" onclick="setMapStyle(1)">🛰 衛星</button>
-            <button class="map-style-btn" id="msBtn2" onclick="setMapStyle(2)">🌑 ダーク</button>
-            <button class="map-style-btn" id="msBtn3" onclick="setMapStyle(3)">🏔 地形</button>
-            <span style="margin:0 3px;color:var(--border);line-height:1">│</span>
-            <button class="map-style-btn lyr-btn" onclick="setLayerType('radar')">🌧 雨雲</button>
-            <button class="map-style-btn lyr-btn" onclick="setLayerType('ir')">☁ 赤外</button>
-            <button class="map-style-btn lyr-btn" onclick="setLayerType('visible')">🌍 可視光</button>
           </div>
           <div class="radar-body">
             <div class="radar-container">
               <div id="radarMap"></div>
               <div class="radar-time-pill" id="radarTimePill">読込中…</div>
               <div class="radar-legend">
-                <div class="legend-row"><div class="legend-swatch" style="background:#40e0ff"></div>〜1mm</div>
-                <div class="legend-row"><div class="legend-swatch" style="background:#00b400"></div>〜5mm</div>
-                <div class="legend-row"><div class="legend-swatch" style="background:#ffff00"></div>〜15mm</div>
-                <div class="legend-row"><div class="legend-swatch" style="background:#ff8c00"></div>〜30mm</div>
-                <div class="legend-row"><div class="legend-swatch" style="background:#ff0000"></div>30mm+</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#00c8ff"></div>弱</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#00e600"></div>並</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#ffff00"></div>強</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#ff8c00"></div>激</div>
+                <div class="legend-row"><div class="legend-swatch" style="background:#ff0000"></div>猛</div>
               </div>
-
+              <div class="radar-float-btns">
+                <a class="radar-float-btn" href="https://www.jma.go.jp/bosai/nowc/" target="_blank">🌐 気象庁</a>
+                <a class="radar-float-btn" href="https://weather.yahoo.co.jp/weather/zoomradar/" target="_blank">🟡 Yahoo!</a>
+                <a class="radar-float-btn" href="https://www.windy.com/?35.4,139.6,7" target="_blank">🌀 Windy</a>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
+    </div><!-- /col-1 -->
 
   </div><!-- /columns -->
 </div><!-- /grid-area -->
@@ -573,434 +624,700 @@ updateClock(); setInterval(updateClock,15000);
 function fmtTime(d){return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
 
 /* ══════════════════════════════════════
-   LOCATION
+   GOOGLE CALENDAR — OAuth2 (Authorization Code + Refresh Token)
+   Cloudflare Worker 経由でトークン交換することで
+   リフレッシュトークンを使った長期間ログイン維持を実現
 ══════════════════════════════════════ */
-const PRESETS=[
-  {name:'逗子市', lat:35.2942, lon:139.5779},
-  {name:'羽田空港', lat:35.5494, lon:139.7798},
-  {name:'横浜', lat:35.4437, lon:139.6380},
-];
-const LOC_KEY='weather_location_v2';
+const GCAL_CLIENT_KEY  = 'gcal_client_id';
+const GCAL_PROXY_KEY   = 'gcal_proxy_url';
+const GCAL_ACCESS_KEY  = 'gcal_access_token';
+const GCAL_EXPIRY_KEY  = 'gcal_expiry';
+const GCAL_REFRESH_KEY = 'gcal_refresh_token';
+const GCAL_SCOPES      = 'https://www.googleapis.com/auth/calendar.readonly';
 
-function getSavedLoc(){
-  try{
-    const s=localStorage.getItem(LOC_KEY);
-    if(s) return JSON.parse(s);
-  }catch(e){}
-  return {...PRESETS[2], presetIdx:2};
-}
-let currentLoc=getSavedLoc();
+function gcalClientId(){ return localStorage.getItem(GCAL_CLIENT_KEY)||''; }
+function gcalProxyUrl(){ return (localStorage.getItem(GCAL_PROXY_KEY)||'').replace(/\/$/,''); }
 
-function updateLocUI(){
-  PRESETS.forEach((_,i)=>{
-    const btn=document.getElementById(`locBtn${i}`);
-    if(btn) btn.classList.toggle('active', currentLoc.presetIdx===i);
-  });
-  const customBtn=document.getElementById('locBtnCustom');
-  if(customBtn) customBtn.classList.toggle('active', currentLoc.presetIdx===-1);
-  document.getElementById('headerLoc').textContent=currentLoc.name;
-}
-
-function setLocation(idx){
-  currentLoc={...PRESETS[idx], presetIdx:idx};
-  localStorage.setItem(LOC_KEY, JSON.stringify(currentLoc));
-  document.getElementById('customLocWrap').style.display='none';
-  updateLocUI();
-  loadWeather();
-}
-
-function toggleCustomLoc(){
-  const wrap=document.getElementById('customLocWrap');
-  const isOpen=wrap.style.display==='none';
-  wrap.style.display=isOpen?'block':'none';
-  if(isOpen) document.getElementById('locSearchInput').focus();
-}
-
-let locSearchResults=[];
-async function searchLocation(){
-  const q=(document.getElementById('locSearchInput').value||'').trim();
-  if(!q) return;
-  const res=document.getElementById('locResults');
-  res.innerHTML=`<div class="loading-text" style="padding:8px 0"><span class="spinner"></span> 検索中…</div>`;
-  try{
-    const r=await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=ja&format=json`
-    );
-    const d=await r.json();
-    locSearchResults=d.results||[];
-    if(!locSearchResults.length){
-      res.innerHTML=`<div class="loc-result-item">見つかりませんでした</div>`;
-      return;
-    }
-    res.innerHTML=locSearchResults.map((p,i)=>{
-      const label=[p.name, p.admin1, p.country].filter(Boolean).join(', ');
-      return`<div class="loc-result-item" data-idx="${i}">📍 ${label}</div>`;
-    }).join('');
-    res.querySelectorAll('.loc-result-item').forEach(el=>{
-      el.addEventListener('click',()=>pickCustomLoc(Number(el.dataset.idx)));
-    });
-  }catch(e){
-    res.innerHTML=`<div class="loc-result-item">検索エラー</div>`;
-  }
-}
-
-function pickCustomLoc(idx){
-  const p=locSearchResults[idx];
-  if(!p) return;
-  const label=[p.name, p.admin1].filter(Boolean).join(', ');
-  currentLoc={name:label, lat:p.latitude, lon:p.longitude, presetIdx:-1};
-  localStorage.setItem(LOC_KEY, JSON.stringify(currentLoc));
-  document.getElementById('customLocWrap').style.display='none';
-  document.getElementById('locResults').innerHTML='';
-  document.getElementById('locSearchInput').value='';
-  updateLocUI();
-  loadWeather();
-}
-
-/* ══════════════════════════════════════
-   GOOGLE CALENDAR
-══════════════════════════════════════ */
-const GCAL_CLIENT_KEY='gcal_client_id';
-const GCAL_TOKEN_KEY ='gcal_token';
-const GCAL_EXPIRY_KEY='gcal_expiry';
-const GCAL_SCOPES    ='https://www.googleapis.com/auth/calendar.readonly';
-const CAL_SEL_KEY    ='gcal_selected_cals_v2';
-
-function gcalClientId(){return localStorage.getItem(GCAL_CLIENT_KEY)||'';}
-function gcalGetToken(){
+function gcalGetAccessToken(){
   const exp=localStorage.getItem(GCAL_EXPIRY_KEY);
-  if(exp&&Date.now()<Number(exp)) return localStorage.getItem(GCAL_TOKEN_KEY);
-  return null;
+  if(exp && Date.now()<Number(exp)) return localStorage.getItem(GCAL_ACCESS_KEY);
+  return null; // 期限切れ or 未取得
 }
-function gcalSaveToken(tok,sec){
-  localStorage.setItem(GCAL_TOKEN_KEY,tok);
+function gcalSaveAccessToken(tok,sec){
+  localStorage.setItem(GCAL_ACCESS_KEY,tok);
   localStorage.setItem(GCAL_EXPIRY_KEY,String(Date.now()+sec*1000-60000));
 }
+function gcalGetRefreshToken(){ return localStorage.getItem(GCAL_REFRESH_KEY)||null; }
+function gcalSaveRefreshToken(tok){ if(tok) localStorage.setItem(GCAL_REFRESH_KEY,tok); }
+function gcalClearAll(){
+  localStorage.removeItem(GCAL_ACCESS_KEY);
+  localStorage.removeItem(GCAL_EXPIRY_KEY);
+  localStorage.removeItem(GCAL_REFRESH_KEY);
+}
+
+/* サインイン開始（authorization code flow） */
 function gcalSignIn(){
   const cid=gcalClientId();
-  if(!cid){showSetupUI();return;}
+  const proxy=gcalProxyUrl();
+  if(!cid||!proxy){showSetupUI();return;}
   const redirect=location.origin+location.pathname;
   location.href='https://accounts.google.com/o/oauth2/v2/auth'
     +`?client_id=${encodeURIComponent(cid)}`
     +`&redirect_uri=${encodeURIComponent(redirect)}`
-    +'&response_type=token'
+    +'&response_type=code'
     +`&scope=${encodeURIComponent(GCAL_SCOPES)}`
-    +'&prompt=consent';
+    +'&access_type=offline'   // ← リフレッシュトークンをもらうために必須
+    +'&prompt=consent';        // ← 毎回確実にrefresh_tokenを発行させる
 }
-function gcalHandleRedirect(){
-  if(!location.hash) return false;
-  const p=new URLSearchParams(location.hash.slice(1));
-  const tok=p.get('access_token');
-  if(tok){
-    gcalSaveToken(tok,Number(p.get('expires_in'))||3600);
+
+/* リダイレクト後、?code=... をWorkerに渡してトークン交換 */
+async function gcalHandleRedirect(){
+  const params=new URLSearchParams(location.search);
+  const code=params.get('code');
+  const errParam=params.get('error');
+
+  if(errParam){
     history.replaceState(null,'',location.pathname);
-    return true;
+    showSetupUI(`Google認証エラー: ${errParam}`);
+    return false;
+  }
+  if(!code) return false;
+
+  history.replaceState(null,'',location.pathname); // URLからcodeを消す
+
+  const proxy=gcalProxyUrl();
+  if(!proxy) return false;
+
+  try{
+    const redirect=location.origin+location.pathname;
+    const res=await fetch(`${proxy}/exchange`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code, redirect_uri:redirect})
+    });
+    const data=await res.json();
+    if(data.access_token){
+      gcalSaveAccessToken(data.access_token,data.expires_in||3600);
+      gcalSaveRefreshToken(data.refresh_token); // 初回のみ返ってくる
+      return true;
+    } else {
+      // デバッグ: Workerからのエラー内容を画面に表示
+      console.error('Token exchange response:', data);
+      showSetupUI(`トークン交換失敗: ${data.error||''} ${data.error_description||JSON.stringify(data)}`);
+      return false;
+    }
+  }catch(e){
+    console.error('Token exchange failed',e);
+    showSetupUI(`通信エラー: ${e.message}`);
   }
   return false;
 }
 
-/* ── Date navigation ── */
-let calDisplayDate=new Date(); calDisplayDate.setHours(0,0,0,0);
-let weatherDisplayDate=new Date(); weatherDisplayDate.setHours(0,0,0,0);
+/* アクセストークンをリフレッシュトークンで更新 */
+async function gcalRefreshAccessToken(){
+  const proxy=gcalProxyUrl();
+  const refreshToken=gcalGetRefreshToken();
+  if(!proxy||!refreshToken) return null;
 
-function weatherNav(delta){
-  const today=new Date();today.setHours(0,0,0,0);
-  const next=new Date(weatherDisplayDate.getTime()+delta*86400000);
-  const diff=Math.round((next-today)/86400000);
-  if(diff<-1||diff>6) return;
-  weatherDisplayDate=next;
-  updateWeatherDateLabel();
-  loadWeather();
-}
-function weatherNavToday(){
-  const today=new Date();today.setHours(0,0,0,0);
-  if(weatherDisplayDate.getTime()===today.getTime()) return;
-  weatherDisplayDate=today;
-  updateWeatherDateLabel();
-  loadWeather();
-}
-function updateWeatherDateLabel(){
-  const el=document.getElementById('weatherDateLabel');
-  if(!el) return;
-  const today=new Date();today.setHours(0,0,0,0);
-  const diff=Math.round((weatherDisplayDate-today)/86400000);
-  const m=weatherDisplayDate.getMonth()+1, d=weatherDisplayDate.getDate();
-  let text=`${m}/${d}`;
-  if(diff===0) text+=' 今日';
-  else if(diff===1) text+=' 明日';
-  else if(diff===-1) text+=' 昨日';
-  el.textContent=text;
-  el.className='cal-date-label'+(diff===0?' is-today':'');
-}
-
-function calNav(delta){
-  calDisplayDate=new Date(calDisplayDate.getTime()+delta*86400000);
-  updateCalDateLabel();
-  loadCalendar();
-}
-function calNavToday(){
-  const today=new Date(); today.setHours(0,0,0,0);
-  if(calDisplayDate.getTime()===today.getTime()) return;
-  calDisplayDate=today;
-  updateCalDateLabel();
-  loadCalendar();
-}
-function updateCalDateLabel(){
-  const n=calDisplayDate;
-  const today=new Date(); today.setHours(0,0,0,0);
-  const diff=Math.round((calDisplayDate-today)/86400000);
-  const label=document.getElementById('calDateLabel');
-  let text=`${n.getMonth()+1}/${n.getDate()}(${WDAYS[n.getDay()]})`;
-  if(diff===0) text+=' 今日';
-  else if(diff===1) text+=' 明日';
-  else if(diff===-1) text+=' 昨日';
-  label.textContent=text;
-  label.classList.toggle('is-today', diff===0);
-}
-
-/* ── Calendar selector ── */
-let calCalendarsCache=null;
-let calEventsCache=[];
-
-function getSelectedCalIds(){
-  const s=localStorage.getItem(CAL_SEL_KEY);
-  if(!s) return null; // null = すべて表示
-  try{return new Set(JSON.parse(s));}catch(e){return null;}
-}
-function saveSelectedCalIds(ids){
-  localStorage.setItem(CAL_SEL_KEY, JSON.stringify([...ids]));
-}
-
-function renderCalSettingsPanel(calendars){
-  if(!calendars||!calendars.length) return;
-  const selectedIds=getSelectedCalIds();
-  const panel=document.getElementById('calSettingsPanel');
-  panel.innerHTML=calendars.map(cal=>{
-    const checked=!selectedIds||selectedIds.has(cal.id);
-    const color=cal.backgroundColor||'#4a9eff';
-    return`<label class="cal-check-row">
-      <input type="checkbox" class="cal-checkbox" data-calid="${cal.id}" ${checked?'checked':''}>
-      <span class="cal-color-dot" style="background:${color}"></span>
-      <span class="cal-check-label">${cal.summary||cal.id}</span>
-    </label>`;
-  }).join('');
-  panel.querySelectorAll('.cal-checkbox').forEach(cb=>{
-    cb.addEventListener('change',()=>{
-      const checked=new Set(
-        [...panel.querySelectorAll('.cal-checkbox:checked')].map(el=>el.dataset.calid)
-      );
-      saveSelectedCalIds(checked);
-      renderEvents(filterEvents(calEventsCache, checked));
+  try{
+    const res=await fetch(`${proxy}/refresh`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({refresh_token:refreshToken})
     });
-  });
+    const data=await res.json();
+    if(data.access_token){
+      gcalSaveAccessToken(data.access_token,data.expires_in||3600);
+      return data.access_token;
+    }
+  }catch(e){console.error('Refresh failed',e);}
+  return null;
 }
 
-function toggleCalSettings(){
-  const panel=document.getElementById('calSettingsPanel');
-  const btn=document.getElementById('calSettingsBtn');
-  const open=panel.classList.toggle('open');
-  btn.classList.toggle('active',open);
-  if(open&&calCalendarsCache) renderCalSettingsPanel(calCalendarsCache);
+/* 有効なアクセストークンを返す（必要ならリフレッシュ） */
+async function gcalEnsureToken(){
+  let tok=gcalGetAccessToken();
+  if(tok) return tok;
+  tok=await gcalRefreshAccessToken();
+  return tok;
 }
 
-function filterEvents(events, selectedIds){
-  if(!selectedIds) return events;
-  return events.filter(ev=>selectedIds.has(ev.calId));
-}
-
-/* ── Setup UI ── */
+/* ── 設定UI を scheduleBody に描画 ── */
 function showSetupUI(msg){
   const cid=gcalClientId();
+  const proxy=localStorage.getItem(GCAL_PROXY_KEY)||'';
   document.getElementById('scheduleBody').innerHTML=`
     <div class="gcal-setup">
       ${msg?`<p style="color:var(--warn)">${msg}</p>`:''}
-      <p>Google カレンダーを表示するにはOAuth クライアントID（ウェブアプリ用）を入力してください。</p>
-      <div class="gcal-input-row">
+      <p>Google カレンダーを表示するには、OAuth クライアントIDと、トークン交換用 Cloudflare Worker のURLを入力してください。</p>
+      <div class="gcal-input-row" style="margin-bottom:8px">
         <input class="gcal-input" id="gcalClientInput" type="text"
-          placeholder="xxxx.apps.googleusercontent.com" value="${cid}">
+          placeholder="クライアントID（xxxx.apps.googleusercontent.com）"
+          value="${cid}">
+      </div>
+      <div class="gcal-input-row">
+        <input class="gcal-input" id="gcalProxyInput" type="text"
+          placeholder="Worker URL（https://xxxx.workers.dev）"
+          value="${proxy}">
         <button class="gcal-save-btn" onclick="saveClientId()">保存</button>
       </div>
       <div class="gcal-id-hint">
         ※ <a href="https://console.cloud.google.com/apis/credentials" target="_blank"
            style="color:var(--accent)">Google Cloud Console</a> で作成した
         「ウェブアプリケーション」用のクライアントID<br>
-        ※ 承認済みリダイレクトURIにこのページのURLを追加してください
+        ※ 承認済みリダイレクトURIにこのページのURLを追加してください<br>
+        ※ Worker URL はトークン交換用に作成したCloudflare WorkerのURL
       </div>
-      ${cid?`<button class="gcal-signin-btn" onclick="gcalSignIn()">🔑 Google カレンダーに接続</button>`:''}
+      ${cid&&proxy?`<button class="gcal-signin-btn" onclick="gcalSignIn()">🔑 Google カレンダーに接続</button>`:''}
     </div>`;
 }
 
 function saveClientId(){
-  const val=(document.getElementById('gcalClientInput')?.value||'').trim();
-  if(!val){showSetupUI('クライアントIDを入力してください');return;}
-  localStorage.setItem(GCAL_CLIENT_KEY,val);
-  localStorage.removeItem(GCAL_TOKEN_KEY);
-  localStorage.removeItem(GCAL_EXPIRY_KEY);
+  const cidVal=document.getElementById('gcalClientInput')?.value?.trim();
+  const proxyVal=document.getElementById('gcalProxyInput')?.value?.trim();
+  if(!cidVal||!proxyVal){showSetupUI('クライアントIDとWorker URLの両方を入力してください');return;}
+  localStorage.setItem(GCAL_CLIENT_KEY,cidVal);
+  localStorage.setItem(GCAL_PROXY_KEY,proxyVal);
+  gcalClearAll(); // 再サインイン促す
   document.getElementById('scheduleBody').innerHTML=`
     <div class="gcal-setup">
-      <p style="color:var(--good)">✓ クライアントIDを保存しました</p>
+      <p style="color:var(--good)">✓ 設定を保存しました</p>
       <button class="gcal-signin-btn" onclick="gcalSignIn()">🔑 Google カレンダーに接続</button>
     </div>`;
 }
 
-/* ── Fetch & render events ── */
-async function gcalFetchAll(token, date){
-  const start=new Date(date.getFullYear(),date.getMonth(),date.getDate(),0,0,0).toISOString();
-  const end  =new Date(date.getFullYear(),date.getMonth(),date.getDate(),23,59,59).toISOString();
+/* ── カレンダー一覧の取得・キャッシュ・選択管理 ── */
+const GCAL_CALLIST_KEY = 'gcal_calendar_list';
+const GCAL_SELECTED_KEY = 'gcal_selected_calendars';
 
-  const calR=await fetch(
+function gcalGetSelectedIds(){
+  const raw=localStorage.getItem(GCAL_SELECTED_KEY);
+  if(raw===null) return null; // null = 未設定（全部表示）
+  try{ return JSON.parse(raw); }catch(e){ return null; }
+}
+function gcalSaveSelectedIds(ids){
+  localStorage.setItem(GCAL_SELECTED_KEY,JSON.stringify(ids));
+}
+function gcalGetCachedCalendarList(){
+  try{ return JSON.parse(localStorage.getItem(GCAL_CALLIST_KEY)||'[]'); }catch(e){ return []; }
+}
+function gcalSaveCalendarListCache(list){
+  localStorage.setItem(GCAL_CALLIST_KEY,JSON.stringify(list));
+}
+
+async function gcalFetchCalendarList(){
+  let token=await gcalEnsureToken();
+  if(!token) return null;
+  let res=await fetch(
     'https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader',
-    {headers:{Authorization:`Bearer ${token}`}}
-  );
-  if(!calR.ok) return null;
-  const calData=await calR.json();
-  const calendars=calData.items||[];
-  calCalendarsCache=calendars;
+    {headers:{Authorization:`Bearer ${token}`}});
+  if(res.status===401){
+    token=await gcalRefreshAccessToken();
+    if(!token) return null;
+    res=await fetch(
+      'https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader',
+      {headers:{Authorization:`Bearer ${token}`}});
+  }
+  if(!res.ok) return null;
+  const data=await res.json();
+  const list=(data.items||[]).map(cal=>({
+    id:cal.id, summary:cal.summary||cal.id,
+    color:cal.backgroundColor||'#4a9eff',
+  }));
+  gcalSaveCalendarListCache(list);
+  return list;
+}
 
+/* ── 指定期間の予定を取得（選択カレンダーのみ） ── */
+async function gcalFetchRange(startDate,endDate){
+  let token=await gcalEnsureToken();
+  if(!token) return null;
+
+  let calList=gcalGetCachedCalendarList();
+  if(calList.length===0){
+    const fetched=await gcalFetchCalendarList();
+    if(fetched===null) return null;
+    calList=fetched;
+  }
+
+  const selectedIds=gcalGetSelectedIds(); // null = 全部
+  const targetCals = selectedIds===null
+    ? calList
+    : calList.filter(c=>selectedIds.includes(c.id));
+
+  const start=startDate.toISOString();
+  const end=endDate.toISOString();
   const all=[];
-  await Promise.all(calendars.map(async cal=>{
+
+  for(const cal of targetCals){
     try{
-      const evR=await fetch(
+      let evR=await fetch(
         `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`
         +`?timeMin=${encodeURIComponent(start)}&timeMax=${encodeURIComponent(end)}`
-        +`&singleEvents=true&orderBy=startTime&maxResults=50`,
-        {headers:{Authorization:`Bearer ${token}`}}
-      );
-      if(!evR.ok) return;
+        +`&singleEvents=true&orderBy=startTime&maxResults=100`,
+        {headers:{Authorization:`Bearer ${token}`}});
+      if(evR.status===401){
+        token=await gcalRefreshAccessToken();
+        if(!token) continue;
+        evR=await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`
+          +`?timeMin=${encodeURIComponent(start)}&timeMax=${encodeURIComponent(end)}`
+          +`&singleEvents=true&orderBy=startTime&maxResults=100`,
+          {headers:{Authorization:`Bearer ${token}`}});
+      }
+      if(!evR.ok) continue;
       const evD=await evR.json();
       for(const ev of (evD.items||[])){
         const isAllDay=!!ev.start?.date;
-        const sdt=isAllDay?null:new Date(ev.start.dateTime);
-        const edt=isAllDay?null:new Date(ev.end.dateTime);
+        const sdt=isAllDay?new Date(ev.start.date+'T00:00:00'):new Date(ev.start.dateTime);
+        const edt=isAllDay?new Date(ev.end.date+'T00:00:00'):new Date(ev.end.dateTime);
         const title=ev.summary||'（タイトルなし）';
         const isFlight=/\bJ\d{1,4}\b|PAIRING|フライト|ペアリング/i.test(title+(cal.summary||''));
         all.push({
-          calId:cal.id,
-          sortKey:isAllDay?'0000':fmtTime(sdt),
-          title, loc:ev.location||'', isAllDay, isFlight,
-          startTime:isAllDay?'終日':fmtTime(sdt),
-          endTime:isAllDay?'':fmtTime(edt),
-          calColor:cal.backgroundColor||'#4a9eff',
+          start:sdt, end:edt, isAllDay, isFlight,
+          title, loc:ev.location||'',
+          calColor:cal.color||'#4a9eff', calName:cal.summary||'',
         });
       }
     }catch(e){}
-  }));
-  all.sort((a,b)=>a.sortKey.localeCompare(b.sortKey));
-  return {calendars, events:all};
+  }
+  all.sort((a,b)=>a.start-b.start);
+  return all;
 }
 
-function renderEvents(events){
+/* 後方互換：今日だけの取得（旧コード用） */
+async function gcalFetchToday(){
+  const now=new Date();
+  const start=new Date(now.getFullYear(),now.getMonth(),now.getDate(),0,0,0);
+  const end=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);
+  const events=await gcalFetchRange(start,end);
+  if(events===null) return null;
+  return events.map(ev=>({
+    sortKey:ev.isAllDay?'0000':fmtTime(ev.start),
+    title:ev.title, loc:ev.loc, isAllDay:ev.isAllDay, isFlight:ev.isFlight,
+    startTime:ev.isAllDay?'終日':fmtTime(ev.start),
+    endTime:ev.isAllDay?'':fmtTime(ev.end),
+    calColor:ev.calColor,
+  }));
+}
+
+/* ══════════════════════════════════════
+   カレンダー表示モード（日／週／月）
+══════════════════════════════════════ */
+const CAL_MODE_KEY='gcal_view_mode';
+let calMode = localStorage.getItem(CAL_MODE_KEY) || 'day';
+let calAnchorDate = new Date(); // 表示の基準日
+
+function setCalMode(mode){
+  calMode=mode;
+  localStorage.setItem(CAL_MODE_KEY,mode);
+  document.querySelectorAll('.cal-mode-tab').forEach(t=>{
+    t.classList.toggle('active',t.dataset.mode===mode);
+  });
+  loadCalendar();
+}
+
+function navCal(dir){
+  if(calMode==='day')   calAnchorDate.setDate(calAnchorDate.getDate()+dir);
+  if(calMode==='week')  calAnchorDate.setDate(calAnchorDate.getDate()+dir*7);
+  if(calMode==='month') calAnchorDate.setMonth(calAnchorDate.getMonth()+dir);
+  loadCalendar();
+}
+
+function getRangeForMode(){
+  const d=new Date(calAnchorDate);
+  if(calMode==='day'){
+    const start=new Date(d.getFullYear(),d.getMonth(),d.getDate(),0,0,0);
+    const end=new Date(d.getFullYear(),d.getMonth(),d.getDate(),23,59,59);
+    return {start,end};
+  }
+  if(calMode==='week'){
+    const dow=d.getDay(); // 0=日
+    const start=new Date(d.getFullYear(),d.getMonth(),d.getDate()-dow,0,0,0);
+    const end=new Date(start.getFullYear(),start.getMonth(),start.getDate()+6,23,59,59);
+    return {start,end};
+  }
+  // month
+  const start=new Date(d.getFullYear(),d.getMonth(),1,0,0,0);
+  const end=new Date(d.getFullYear(),d.getMonth()+1,0,23,59,59);
+  // カレンダーグリッド表示用に、月の前後の表示日も含める
+  const gridStart=new Date(start); gridStart.setDate(gridStart.getDate()-start.getDay());
+  const gridEnd=new Date(end); gridEnd.setDate(gridEnd.getDate()+(6-end.getDay()));
+  return {start:gridStart,end:gridEnd,monthStart:start,monthEnd:end};
+}
+
+function updatePeriodLabel(){
+  const d=calAnchorDate;
+  const el=document.getElementById('calPeriodLabel');
+  if(calMode==='day'){
+    el.textContent=`${d.getMonth()+1}/${d.getDate()}（${WDAYS[d.getDay()]}）`;
+  } else if(calMode==='week'){
+    const dow=d.getDay();
+    const s=new Date(d.getFullYear(),d.getMonth(),d.getDate()-dow);
+    const e=new Date(s.getFullYear(),s.getMonth(),s.getDate()+6);
+    el.textContent=`${s.getMonth()+1}/${s.getDate()} – ${e.getMonth()+1}/${e.getDate()}`;
+  } else {
+    el.textContent=`${d.getFullYear()}年${d.getMonth()+1}月`;
+  }
+}
+
+/* ── 日表示：ヒーローカウントダウン＋カードリスト ── */
+let countdownTimer=null;
+
+function renderEvents(events){ // 日表示
   const el=document.getElementById('scheduleBody');
-  if(!events||!events.length){
+  if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
+
+  if(!events||events.length===0){
     el.innerHTML=`<div class="no-events">予定はありません ✈</div>`;
     return;
   }
-  el.innerHTML=events.map(ev=>{
-    const dotClass=ev.isFlight?'flight':ev.isAllDay?'allday':'';
-    const badge=ev.isFlight?`<span class="event-badge flight">FLIGHT</span>`:'';
-    const timeStr=ev.isAllDay?'終日':`${ev.startTime}–${ev.endTime}`;
-    const loc=ev.loc?`<div class="event-location">📍 ${ev.loc}</div>`:'';
-    return`<div class="event-row">
-      <div class="event-time">${timeStr}</div>
-      <div class="event-dot ${dotClass}" style="background:${ev.calColor}"></div>
-      <div class="event-info"><div class="event-title">${ev.title}</div>${loc}</div>
-      ${badge}</div>`;
+
+  const now=new Date();
+  const isViewingToday =
+    calAnchorDate.getFullYear()===now.getFullYear() &&
+    calAnchorDate.getMonth()===now.getMonth() &&
+    calAnchorDate.getDate()===now.getDate();
+
+  const allDayEvents = events.filter(ev=>ev.isAllDay);
+  const timedEvents   = events.filter(ev=>!ev.isAllDay);
+
+  // 「次の予定」候補：今日を表示中で、開始時刻が今より後のもの（一番近いもの）
+  const upcoming = isViewingToday
+    ? timedEvents
+        .map(ev=>({...ev, _startDate: parseTimeToDate(ev.startTime, now)}))
+        .filter(ev=>ev._startDate && ev._startDate.getTime() > now.getTime())
+        .sort((a,b)=>a._startDate-b._startDate)
+    : [];
+
+  const nextEvent = upcoming[0] || null;
+
+  let html='';
+
+  // 終日予定バー
+  allDayEvents.forEach(ev=>{
+    html+=`
+      <div class="allday-bar">
+        <div class="ab-dot" style="background:${ev.calColor}"></div>
+        <div class="ab-title">${ev.title}</div>
+      </div>`;
+  });
+
+  // ヒーローカード（次の予定）
+  if(nextEvent){
+    const isFlight=nextEvent.isFlight;
+    html+=`
+      <div class="next-event-hero ${isFlight?'is-flight':''}" id="heroCard" data-target="${nextEvent._startDate.getTime()}">
+        <div class="hero-icon">${isFlight?'✈️':'⏰'}</div>
+        <div class="hero-label">次の予定まで</div>
+        <div class="hero-countdown" id="heroCountdown">--<span class="hero-unit">分</span></div>
+        <div class="hero-title">${nextEvent.title}</div>
+        <div class="hero-meta">
+          <span>🕐 ${nextEvent.startTime}${nextEvent.endTime?`–${nextEvent.endTime}`:''}</span>
+          ${nextEvent.loc?`<span>📍 ${nextEvent.loc}</span>`:''}
+        </div>
+      </div>`;
+  }
+
+  // 残りの予定をカードリストで表示（次の予定以降、または次の予定がない場合は全て）
+  const restEvents = nextEvent
+    ? timedEvents.filter(ev=>ev!==nextEvent && (!ev._startDate||true)).filter(ev=>ev.startTime!==nextEvent.startTime||ev.title!==nextEvent.title)
+    : timedEvents;
+
+  restEvents.forEach(ev=>{
+    const isFlight=ev.isFlight;
+    const barColor=isFlight?'#ff6b2b':ev.calColor;
+    const badge=isFlight?`<span class="event-badge flight">FLIGHT</span>`:'';
+    const icon=isFlight?`<span class="ec-flight-icon">✈️</span>`:'';
+    const loc=ev.loc?`<div class="ec-loc">📍 ${ev.loc}</div>`:'';
+    html+=`
+      <div class="event-card">
+        <div class="ec-time-col">
+          <div class="ec-time">${ev.startTime}</div>
+          ${ev.endTime?`<div class="ec-time-end">${ev.endTime}</div>`:''}
+        </div>
+        <div class="ec-bar" style="background:${barColor}"></div>
+        ${icon}
+        <div class="ec-info">
+          <div class="ec-title">${ev.title}</div>
+          ${loc}
+        </div>
+        ${badge}
+      </div>`;
+  });
+
+  el.innerHTML=html;
+
+  // カウントダウンの実時間更新
+  if(nextEvent){
+    updateHeroCountdown();
+    countdownTimer=setInterval(updateHeroCountdown,30000);
+  }
+}
+
+function updateHeroCountdown(){
+  const hero=document.getElementById('heroCard');
+  const cd=document.getElementById('heroCountdown');
+  if(!hero||!cd) return;
+  const target=Number(hero.dataset.target);
+  const diffMin=Math.round((target-Date.now())/60000);
+
+  if(diffMin<=0){
+    cd.innerHTML=`まもなく`;
+    hero.classList.remove('is-soon');
+    return;
+  }
+  if(diffMin<60){
+    cd.innerHTML=`${diffMin}<span class="hero-unit">分</span>`;
+    if(diffMin<=15) hero.classList.add('is-soon');
+  }else{
+    const h=Math.floor(diffMin/60), m=diffMin%60;
+    cd.innerHTML=`${h}<span class="hero-unit">時間</span>${m>0?` ${m}<span class="hero-unit">分</span>`:''}`;
+  }
+}
+
+/* "HH:MM" 文字列を、今日の日付のDateオブジェクトに変換 */
+function parseTimeToDate(timeStr,baseDate){
+  if(!timeStr||!/^\d{1,2}:\d{2}$/.test(timeStr)) return null;
+  const [h,m]=timeStr.split(':').map(Number);
+  const d=new Date(baseDate.getFullYear(),baseDate.getMonth(),baseDate.getDate(),h,m,0);
+  return d;
+}
+
+function renderWeekView(events,rangeStart){
+  const el=document.getElementById('scheduleBody');
+  const today=new Date();
+  const days=[];
+  for(let i=0;i<7;i++){
+    const d=new Date(rangeStart); d.setDate(d.getDate()+i);
+    days.push(d);
+  }
+  const isSameDay=(a,b)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
+
+  const cols=days.map(day=>{
+    const dayEvents=(events||[]).filter(ev=>isSameDay(ev.start,day)||(ev.isAllDay&&ev.start<=day&&day<ev.end));
+    const isToday=isSameDay(day,today);
+    const blocks=dayEvents.map(ev=>{
+      const label=ev.isAllDay?ev.title:`${fmtTime(ev.start)} ${ev.title}`;
+      return`<div class="week-event-block ${ev.isAllDay?'allday':''}" style="background:${ev.calColor}">${label}</div>`;
+    }).join('');
+    return`
+      <div class="week-day-col">
+        <div class="week-day-head ${isToday?'today':''}">
+          ${WDAYS[day.getDay()]}<div class="week-day-num">${day.getDate()}</div>
+        </div>
+        ${blocks}
+      </div>`;
   }).join('');
+
+  el.innerHTML=`<div class="week-view"><div class="week-grid">${cols}</div></div>`;
+}
+
+function renderMonthView(events,gridStart,monthStart,monthEnd){
+  const el=document.getElementById('scheduleBody');
+  const today=new Date();
+  const isSameDay=(a,b)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
+
+  const heads=WDAYS.map(w=>`<div class="month-day-head">${w}</div>`).join('');
+
+  const cells=[];
+  for(let i=0;i<42;i++){
+    const d=new Date(gridStart); d.setDate(d.getDate()+i);
+    if(d>monthEnd && i>=35 && d.getMonth()!==monthStart.getMonth()) { /* allow trailing row trim below */ }
+    const inMonth = d>=monthStart && d<=monthEnd;
+    const isToday=isSameDay(d,today);
+    const dayEvents=(events||[]).filter(ev=>isSameDay(ev.start,d)||(ev.isAllDay&&ev.start<=d&&d<ev.end));
+    const maxShow=3;
+    const pills=dayEvents.slice(0,maxShow).map(ev=>
+      `<div class="month-event-pill" style="background:${ev.calColor}">${ev.title}</div>`
+    ).join('');
+    const more=dayEvents.length>maxShow?`<div class="month-event-more">+${dayEvents.length-maxShow}件</div>`:'';
+    cells.push(`
+      <div class="month-cell ${inMonth?'':'other-month'} ${isToday?'today':''}">
+        <div class="month-cell-num">${d.getDate()}</div>
+        <div class="month-event-dot-row">${pills}${more}</div>
+      </div>`);
+  }
+  // 6週分あるが、最終週が完全に対象月外なら削る
+  let cellsHtml=cells.join('');
+  if(cells.length>35){
+    const lastWeekAllOutside = (()=>{
+      const d=new Date(gridStart); d.setDate(d.getDate()+35);
+      return d>monthEnd;
+    })();
+    if(lastWeekAllOutside) cellsHtml=cells.slice(0,35).join('');
+  }
+
+  el.innerHTML=`<div class="month-view"><div class="month-grid">${heads}${cellsHtml}</div></div>`;
 }
 
 async function loadCalendar(){
   const el=document.getElementById('scheduleBody');
   const cid=gcalClientId();
-  if(!cid){showSetupUI();return;}
-  const token=gcalGetToken();
-  if(!token){
+  const proxy=gcalProxyUrl();
+  updatePeriodLabel();
+
+  if(!cid||!proxy){showSetupUI();return;}
+
+  const hasRefresh=!!gcalGetRefreshToken();
+  const hasAccess=!!gcalGetAccessToken();
+  if(!hasRefresh&&!hasAccess){
     el.innerHTML=`<div class="gcal-setup">
       <p>Googleアカウントの認証が必要です</p>
       <button class="gcal-signin-btn" onclick="gcalSignIn()">🔑 Google カレンダーに接続</button>
       <div style="margin-top:8px;text-align:center">
         <span onclick="showSetupUI()" style="font-size:11px;color:var(--text-dim);cursor:pointer;text-decoration:underline">
-          クライアントIDを変更する
+          設定を変更する
         </span>
       </div>
     </div>`;
     return;
   }
-  el.innerHTML=`<div class="loading-text"><span class="spinner"></span> 読込中…</div>`;
+
+  el.innerHTML=`<div class="loading-text"><span class="spinner"></span> カレンダー読込中…</div>`;
   try{
-    const result=await gcalFetchAll(token, calDisplayDate);
-    if(result===null){
-      localStorage.removeItem(GCAL_TOKEN_KEY);
+    const range=getRangeForMode();
+    const events=await gcalFetchRange(range.start,range.end);
+    if(events===null){
+      gcalClearAll();
       el.innerHTML=`<div class="gcal-setup">
         <p style="color:var(--warn)">セッションが切れました</p>
-        <button class="gcal-signin-btn" onclick="gcalSignIn()">🔑 再サインイン</button>
-      </div>`;
+        <button class="gcal-signin-btn" onclick="gcalSignIn()">🔑 再サインイン</button></div>`;
       return;
     }
-    calEventsCache=result.events;
-    // 設定パネルが開いていれば更新
-    if(document.getElementById('calSettingsPanel').classList.contains('open')){
-      renderCalSettingsPanel(result.calendars);
-    }
-    const selectedIds=getSelectedCalIds();
-    renderEvents(filterEvents(result.events, selectedIds));
+
     document.getElementById('calRefresh').textContent=fmtTime(new Date());
-    const hasOutdoor=result.events.some(ev=>!ev.isAllDay&&!ev.isFlight&&ev.loc);
-    if(hasOutdoor){renderTransport();document.getElementById('w-transport').style.display='';}
+
+    if(calMode==='day'){
+      const dayEvents=events.map(ev=>({
+        title:ev.title, loc:ev.loc, isAllDay:ev.isAllDay, isFlight:ev.isFlight,
+        startTime:ev.isAllDay?'終日':fmtTime(ev.start),
+        endTime:ev.isAllDay?'':fmtTime(ev.end),
+        calColor:ev.calColor,
+      }));
+      renderEvents(dayEvents);
+    } else if(calMode==='week'){
+      renderWeekView(events,range.start);
+    } else {
+      renderMonthView(events,range.start,range.monthStart,range.monthEnd);
+    }
   }catch(e){
-    el.innerHTML=`<div class="no-events">読み込みエラー</div>`;
-    console.error(e);
+    el.innerHTML=`<div class="no-events">読み込みエラー</div>`;console.error(e);
   }
+}
+
+/* ══════════════════════════════════════
+   カレンダー選択モーダル
+══════════════════════════════════════ */
+async function openCalSettings(){
+  // モーダルの骨組みを先に表示
+  const overlay=document.createElement('div');
+  overlay.className='cal-modal-overlay';
+  overlay.id='calModalOverlay';
+  overlay.innerHTML=`
+    <div class="cal-modal">
+      <div class="cal-modal-header">
+        <span class="cal-modal-title">表示するカレンダーを選択</span>
+        <button class="cal-modal-close" onclick="closeCalSettings()">✕</button>
+      </div>
+      <div class="cal-modal-body" id="calModalBody">
+        <div class="loading-text"><span class="spinner"></span> 読込中…</div>
+      </div>
+      <div class="cal-modal-footer">
+        <button class="cal-modal-apply-btn" onclick="applyCalSettings()">適用</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{ if(e.target===overlay) closeCalSettings(); });
+
+  let calList=gcalGetCachedCalendarList();
+  if(calList.length===0){
+    const fetched=await gcalFetchCalendarList();
+    if(fetched) calList=fetched;
+  }
+
+  const selectedIds=gcalGetSelectedIds(); // null=全部
+
+  const body=document.getElementById('calModalBody');
+  if(!body) return; // モーダルが閉じられていたら中断
+  if(calList.length===0){
+    body.innerHTML=`<div class="no-events">カレンダーを取得できませんでした</div>`;
+    return;
+  }
+
+  body.innerHTML=calList.map(cal=>{
+    const isChecked = selectedIds===null || selectedIds.includes(cal.id);
+    return`
+      <div class="cal-list-row" onclick="toggleCalRow(this,'${cal.id}')" data-cal-id="${cal.id}">
+        <div class="cal-list-checkbox ${isChecked?'checked':''}" style="${isChecked?`background:${cal.color}`:''}">${isChecked?'✓':''}</div>
+        <div class="cal-list-color" style="background:${cal.color}"></div>
+        <div class="cal-list-name">${cal.summary}</div>
+      </div>`;
+  }).join('');
+}
+
+function toggleCalRow(rowEl,calId){
+  const box=rowEl.querySelector('.cal-list-checkbox');
+  const isChecked=box.classList.contains('checked');
+  const color=rowEl.querySelector('.cal-list-color').style.background;
+  if(isChecked){
+    box.classList.remove('checked');
+    box.style.background='';
+    box.textContent='';
+  }else{
+    box.classList.add('checked');
+    box.style.background=color;
+    box.textContent='✓';
+  }
+}
+
+function applyCalSettings(){
+  const rows=document.querySelectorAll('#calModalBody .cal-list-row');
+  const selected=[];
+  rows.forEach(row=>{
+    if(row.querySelector('.cal-list-checkbox').classList.contains('checked')){
+      selected.push(row.dataset.calId);
+    }
+  });
+  gcalSaveSelectedIds(selected);
+  closeCalSettings();
+  loadCalendar();
+}
+
+function closeCalSettings(){
+  const overlay=document.getElementById('calModalOverlay');
+  if(overlay) overlay.remove();
 }
 
 /* ══ WEATHER ══ */
 const WMO_ICO={0:'☀️',1:'🌤',2:'⛅',3:'☁️',45:'🌫',48:'🌫',51:'🌦',53:'🌦',55:'🌧',61:'🌧',63:'🌧',65:'🌧',71:'🌨',73:'🌨',75:'❄️',80:'🌦',81:'🌧',82:'⛈',95:'⛈',96:'⛈',99:'⛈'};
 const WMO_TXT={0:'晴れ',1:'ほぼ晴れ',2:'薄曇り',3:'曇り',45:'霧',48:'霧',51:'小雨',53:'雨',55:'強雨',61:'小雨',63:'雨',65:'強雨',71:'小雪',73:'雪',75:'大雪',80:'にわか雨',81:'雨',82:'激しい雨',95:'雷雨',96:'雷雨',99:'激しい雷雨'};
+const LAT=35.4437,LON=139.6380;
 
 async function loadWeather(){
-  const {lat,lon,name}=currentLoc;
   try{
-    const r=await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}`
       +`&hourly=temperature_2m,precipitation_probability,weathercode`
       +`&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max,sunrise,sunset`
-      +`&timezone=Asia%2FTokyo&forecast_days=7&past_days=1`
-    );
+      +`&timezone=Asia%2FTokyo&forecast_days=1`);
     const d=await r.json();
-    const hr=d.hourly, da=d.daily;
-    const today=new Date();today.setHours(0,0,0,0);
-    const dayIdx=Math.round((weatherDisplayDate-today)/86400000);
-    const isToday=dayIdx===0;
-    const targetDate=weatherDisplayDate.toISOString().slice(0,10);
-    // その日の時間インデックスを抽出
-    const hourIdxs=hr.time.map((t,i)=>t.startsWith(targetDate)?i:-1).filter(i=>i>=0);
-    const curH=new Date().getHours();
-    // ヘッダー更新（今日は現在時刻の値、他は最高気温）
-    const hdrIdx=isToday?(hourIdxs[curH]??hourIdxs[0]):hourIdxs[12]??hourIdxs[0];
-    const ct=isToday?Math.round(hr.temperature_2m[hdrIdx]):Math.round(da.temperature_2m_max[dayIdx]??hr.temperature_2m[hdrIdx]);
-    const cw=hr.weathercode[hdrIdx];
+    const hr=d.hourly,da=d.daily,curH=new Date().getHours();
+    const ct=Math.round(hr.temperature_2m[curH]),cw=hr.weathercode[curH];
     document.getElementById('headerTemp').textContent=`${ct}°`;
-    document.getElementById('headerLoc').textContent=name;
     document.getElementById('headerDesc').textContent=`${WMO_ICO[cw]||''} ${WMO_TXT[cw]||''}`;
-    // 時間スロット
-    const startSlot=isToday?curH:0;
-    const endSlot=isToday?Math.min(curH+12,24):24;
     let slots='';
-    for(const i of hourIdxs.slice(startSlot,endSlot)){
+    for(let i=curH;i<Math.min(curH+12,24);i++){
       const prp=hr.precipitation_probability[i];
-      const h=parseInt(hr.time[i].slice(11,13));
       slots+=`<div class="hour-slot">
-        <div class="hour-label">${String(h).padStart(2,'0')}時</div>
+        <div class="hour-label">${String(i).padStart(2,'0')}時</div>
         <div class="hour-icon">${WMO_ICO[hr.weathercode[i]]||'❓'}</div>
         <div class="hour-temp">${Math.round(hr.temperature_2m[i])}°</div>
-        <div class="hour-rain">${prp>0?`💧${prp}%`:''}</div>
-      </div>`;
+        <div class="hour-rain">${prp>0?`💧${prp}%`:''}</div></div>`;
     }
-    document.getElementById('weatherHourly').innerHTML=slots||'<div style="padding:14px;font-size:12px;color:var(--text-sub)">データなし</div>';
-    // サマリー（daily配列は past_days=1 で dayIdx+1 がオフセット）
-    const di=da.time?da.time.findIndex(t=>t===targetDate):dayIdx+1;
-    const maxT=Math.round(da.temperature_2m_max[di]??0), minT=Math.round(da.temperature_2m_min[di]??0);
-    const rain=da.precipitation_probability_max[di]??0, wind=Math.round(da.windspeed_10m_max[di]??0);
-    const sunR=(da.sunrise[di]||'').slice(11,16), sunS=(da.sunset[di]||'').slice(11,16);
+    document.getElementById('weatherHourly').innerHTML=slots;
+    const maxT=Math.round(da.temperature_2m_max[0]),minT=Math.round(da.temperature_2m_min[0]);
+    const rain=da.precipitation_probability_max[0],wind=Math.round(da.windspeed_10m_max[0]);
+    const sunR=(da.sunrise[0]||'').slice(11,16),sunS=(da.sunset[0]||'').slice(11,16);
     document.getElementById('weatherSummary').innerHTML=`
       <div class="weather-stat"><div class="weather-stat-label">最高</div><div class="weather-stat-val" style="color:var(--danger)">${maxT}°</div></div>
       <div class="weather-stat"><div class="weather-stat-label">最低</div><div class="weather-stat-val" style="color:var(--accent)">${minT}°</div></div>
@@ -1008,13 +1325,87 @@ async function loadWeather(){
       <div class="weather-stat"><div class="weather-stat-label">最大風速</div><div class="weather-stat-val">${wind}<span style="font-size:9px">km/h</span></div></div>
       <div class="weather-stat"><div class="weather-stat-label">日の出</div><div class="weather-stat-val" style="font-size:13px">${sunR}</div></div>
       <div class="weather-stat"><div class="weather-stat-label">日の入</div><div class="weather-stat-val" style="font-size:13px">${sunS}</div></div>`;
-  }catch(e){
-    document.getElementById('weatherHourly').innerHTML=
-      `<div style="padding:14px;color:var(--text-sub);font-size:12px">天気を取得できませんでした</div>`;
-  }
+  }catch(e){document.getElementById('weatherHourly').innerHTML=`<div style="padding:14px;color:var(--text-sub);font-size:12px">天気を取得できませんでした</div>`;}
 }
 
 /* ══ TRANSPORT ══ */
+/* ══════════════════════════════════════
+   YCAT⇒羽田空港 バス運行状況（ライブ）
+══════════════════════════════════════ */
+const YCAT_DIR_KEY='ycat_direction';
+let ycatDir = localStorage.getItem(YCAT_DIR_KEY) || 'ycat2haneda';
+let ycatRefreshTimer = null;
+
+function setYcatDir(dir){
+  ycatDir = dir;
+  localStorage.setItem(YCAT_DIR_KEY, dir);
+  document.getElementById('ycatDirYcat2Haneda').classList.toggle('active', dir==='ycat2haneda');
+  document.getElementById('ycatDirHaneda2Ycat').classList.toggle('active', dir==='haneda2ycat');
+  loadYcatStatus();
+}
+
+async function loadYcatStatus(){
+  const area=document.getElementById('ycatStatusArea');
+  const proxy=gcalProxyUrl();
+  if(!proxy){
+    area.innerHTML=`<div class="no-events" style="font-size:11px">Worker URLが未設定のため取得できません</div>`;
+    return;
+  }
+
+  try{
+    const res=await fetch(`${proxy}/ycat-status?dir=${ycatDir}`);
+    const data=await res.json();
+
+    document.getElementById('ycatRefresh').textContent=fmtTime(new Date());
+
+    if(!data.ok){
+      area.innerHTML=`<div class="no-events" style="font-size:11px">取得できませんでした</div>`;
+      return;
+    }
+
+    const routeLabel = ycatDir==='ycat2haneda' ? 'YCAT → 羽田空港' : '羽田空港 → YCAT';
+
+    // statusLabelが無い（深夜運休中など）場合
+    if(!data.statusLabel){
+      area.innerHTML=`
+        <div class="ycat-card">
+          <div class="ycat-icon">🚌</div>
+          <div class="ycat-info">
+            <div class="ycat-route">${routeLabel}</div>
+            <div class="ycat-status-label">運行時間外</div>
+            ${data.firstBus?`<div class="ycat-detail">始発バス ${data.firstBus}</div>`:''}
+          </div>
+        </div>`;
+      return;
+    }
+
+    // ステータスに応じて色分け
+    let statusClass='status-ok';
+    let icon='✅';
+    if(data.statusLabel.includes('注意')||data.statusLabel.includes('遅延')){statusClass='status-warn';icon='⚠️';}
+    if(data.statusLabel.includes('運休')||data.statusLabel.includes('大幅')){statusClass='status-bad';icon='🛑';}
+
+    area.innerHTML=`
+      <div class="ycat-card ${statusClass}">
+        <div class="ycat-icon">${icon}</div>
+        <div class="ycat-info">
+          <div class="ycat-route">${routeLabel}</div>
+          <div class="ycat-status-label">${data.statusLabel}</div>
+          ${data.detail?`<div class="ycat-detail">${data.detail}</div>`:''}
+        </div>
+        ${data.minutes?`<div class="ycat-minutes">${data.minutes}<span class="ycat-unit">分</span></div>`:''}
+      </div>`;
+  }catch(e){
+    area.innerHTML=`<div class="no-events" style="font-size:11px">通信エラー</div>`;
+    console.error('YCAT status error:',e);
+  }
+}
+
+function initYcatToggleState(){
+  document.getElementById('ycatDirYcat2Haneda')?.classList.toggle('active', ycatDir==='ycat2haneda');
+  document.getElementById('ycatDirHaneda2Ycat')?.classList.toggle('active', ycatDir==='haneda2ycat');
+}
+
 function renderTransport(){
   document.getElementById('transportBody').innerHTML=[
     {icon:'🚃',name:'Yahoo!路線 遅延情報',sub:'JR・私鉄のリアルタイム遅延',url:'https://transit.yahoo.co.jp/traininfo/top'},
@@ -1041,13 +1432,11 @@ const TRAIN_LINES=[
   {id:'ym-blue',    name:'横浜市営地下鉄', keys:['横浜市営','ブルーライン']},
   {id:'odakyu',     name:'小田急',         keys:['小田急']},
 ];
-
 function getSelTrainLines(){
   try{const s=localStorage.getItem(TRAIN_LINES_KEY);if(s)return new Set(JSON.parse(s));}catch(e){}
   return new Set(['jrtokaido','jryokosuka','jrkeihin','keikyu','sotetsu','tokyu-t']);
 }
 function saveSelTrainLines(ids){localStorage.setItem(TRAIN_LINES_KEY,JSON.stringify([...ids]));}
-
 function renderTrainSettings(){
   const sel=getSelTrainLines();
   document.getElementById('trainSettingsPanel').innerHTML=
@@ -1069,7 +1458,6 @@ function toggleTrainLine(id,btn){
   saveSelTrainLines(sel);
   renderTrainBody(trainDelayCache);
 }
-
 let trainDelayCache=[];
 async function loadTrainDelay(){
   try{
@@ -1078,7 +1466,7 @@ async function loadTrainDelay(){
     renderTrainBody(trainDelayCache);
     document.getElementById('trainRefresh').textContent=fmtTime(new Date());
   }catch(e){
-    document.getElementById('trainBody').innerHTML=`<div class="no-events">取得エラー（通信を確認）</div>`;
+    document.getElementById('trainBody').innerHTML=`<div class="no-events">取得エラー</div>`;
   }
 }
 function renderTrainBody(delayed){
@@ -1116,7 +1504,6 @@ const YCAT_INFO={
   narita:{sub:'第1・第2・第3ターミナル',time:'約80〜120分'}
 };
 let currentYcatDest=localStorage.getItem('ycat_dest')||'haneda';
-
 function setYcatDest(dest){
   currentYcatDest=dest;
   localStorage.setItem('ycat_dest',dest);
@@ -1130,7 +1517,7 @@ function renderYcatBus(){
   const nowMin=now.getHours()*60+now.getMinutes();
   const schedule=YCAT_TBL[currentYcatDest];
   const info=YCAT_INFO[currentYcatDest];
-  const el=document.getElementById('ycatBody');
+  const el=document.getElementById('ycatBusBody');
   const upcoming=schedule.map(t=>{
     const[h,m]=t.split(':').map(Number);
     return{time:t,diff:h*60+m-nowMin};
@@ -1166,9 +1553,7 @@ const TRAFFIC_CFG=[
     mapsUrl:'https://www.google.com/maps/dir/?api=1&origin=35.4663,139.6197&destination=35.5494,139.7798&travelmode=driving',
   },
 ];
-
 function getGMapsKey(){return localStorage.getItem(GMAPS_KEY_STORE)||'';}
-
 let gmapsScriptLoaded=false;
 function loadGMapsScript(apiKey){
   return new Promise((resolve,reject)=>{
@@ -1183,7 +1568,6 @@ function loadGMapsScript(apiKey){
     document.head.appendChild(s);
   });
 }
-
 async function fetchTrafficData(){
   const key=getGMapsKey();
   if(!key){showTrafficSetup();return;}
@@ -1194,8 +1578,7 @@ async function fetchTrafficData(){
     const svc=new google.maps.DistanceMatrixService();
     const results=await Promise.all(TRAFFIC_CFG.map(r=>new Promise((resolve,reject)=>{
       svc.getDistanceMatrix({
-        origins:[r.origin],
-        destinations:[r.dest],
+        origins:[r.origin],destinations:[r.dest],
         travelMode:google.maps.TravelMode.DRIVING,
         drivingOptions:{departureTime:new Date(),trafficModel:google.maps.TrafficModel.BEST_GUESS},
         language:'ja',
@@ -1204,59 +1587,41 @@ async function fetchTrafficData(){
         else reject(status);
       });
     })));
-    renderTrafficTimes(results);
-    document.getElementById('trafficRefresh').textContent=fmtTime(new Date());
+    const now=new Date();
+    const blocks=TRAFFIC_CFG.map((r,i)=>{
+      const elem=results[i];
+      const normalMin=Math.round((elem.duration?.value||0)/60);
+      const currentMin=Math.round((elem.duration_in_traffic?.value||elem.duration?.value||0)/60);
+      const diff=currentMin-normalMin;
+      const diffSign=diff>0?'+':'';
+      const diffColor=diff>15?'var(--danger)':diff>5?'var(--warn)':'var(--good)';
+      const icon=diff>15?'🔴':diff>5?'🟡':'🟢';
+      return`<div class="traffic-time-block">
+        <div class="traffic-route-label">
+          ${r.fromIcon} <strong>${r.from}</strong>
+          <span style="color:var(--text-dim)">→</span>
+          ${r.toIcon} <strong>${r.to}</strong>
+        </div>
+        <div class="traffic-cells">
+          <div class="traffic-cell"><div class="traffic-cell-label">通常</div><div class="traffic-cell-val">${normalMin}<span class="traffic-cell-unit">分</span></div></div>
+          <div class="traffic-cell"><div class="traffic-cell-label">現在</div><div class="traffic-cell-val">${currentMin}<span class="traffic-cell-unit">分</span></div></div>
+          <div class="traffic-cell" style="border:1px solid ${diffColor}44"><div class="traffic-cell-label">差</div><div class="traffic-cell-val" style="color:${diffColor}">${diffSign}${diff}<span class="traffic-cell-unit">分</span></div></div>
+          <div class="traffic-status-icon">${icon}</div>
+        </div>
+        <a class="traffic-maps-btn" href="${r.mapsUrl}" target="_blank">Googleマップで詳細確認 →</a>
+      </div>`;
+    }).join('<div style="height:1px;background:var(--border);margin:0 15px"></div>');
+    el.innerHTML=blocks+`<div class="traffic-footer">Googleマップ リアルタイム交通情報 — ${fmtTime(now)} 更新</div>`;
+    document.getElementById('trafficRefresh').textContent=fmtTime(now);
   }catch(e){
     const msg=String(e);
     if(msg.includes('load_failed')||msg.includes('InvalidKey')||msg.includes('ApiNotActivated')){
-      el.innerHTML=`<div class="gcal-setup">
-        <p style="color:var(--warn)">⚠ APIキーが無効か、APIが未有効化です</p>
-        <button class="gcal-signin-btn" onclick="showTrafficSetup()">APIキーを再設定</button>
-      </div>`;
+      el.innerHTML=`<div class="gcal-setup"><p style="color:var(--warn)">⚠ APIキーが無効か、APIが未有効化です</p><button class="gcal-signin-btn" onclick="showTrafficSetup()">APIキーを再設定</button></div>`;
     }else{
       el.innerHTML=`<div class="no-events">取得エラー。時間をおいて再試行してください。</div>`;
     }
   }
 }
-
-function renderTrafficTimes(results){
-  const el=document.getElementById('trafficBody');
-  const now=new Date();
-  const blocks=TRAFFIC_CFG.map((r,i)=>{
-    const elem=results[i];
-    const normalMin=Math.round((elem.duration?.value||0)/60);
-    const currentMin=Math.round((elem.duration_in_traffic?.value||elem.duration?.value||0)/60);
-    const diff=currentMin-normalMin;
-    const diffSign=diff>0?'+':'';
-    const diffColor=diff>15?'var(--danger)':diff>5?'var(--warn)':'var(--good)';
-    const icon=diff>15?'🔴':diff>5?'🟡':'🟢';
-    return`<div class="traffic-time-block">
-      <div class="traffic-route-label">
-        ${r.fromIcon} <strong>${r.from}</strong>
-        <span style="color:var(--text-dim)">→</span>
-        ${r.toIcon} <strong>${r.to}</strong>
-      </div>
-      <div class="traffic-cells">
-        <div class="traffic-cell">
-          <div class="traffic-cell-label">通常</div>
-          <div class="traffic-cell-val">${normalMin}<span class="traffic-cell-unit">分</span></div>
-        </div>
-        <div class="traffic-cell">
-          <div class="traffic-cell-label">現在</div>
-          <div class="traffic-cell-val">${currentMin}<span class="traffic-cell-unit">分</span></div>
-        </div>
-        <div class="traffic-cell" style="border:1px solid ${diffColor}44">
-          <div class="traffic-cell-label">差</div>
-          <div class="traffic-cell-val" style="color:${diffColor}">${diffSign}${diff}<span class="traffic-cell-unit">分</span></div>
-        </div>
-        <div class="traffic-status-icon">${icon}</div>
-      </div>
-      <a class="traffic-maps-btn" href="${r.mapsUrl}" target="_blank">Googleマップで詳細確認 →</a>
-    </div>`;
-  }).join('<div style="height:1px;background:var(--border);margin:0 15px"></div>');
-  el.innerHTML=blocks+`<div class="traffic-footer">Googleマップ リアルタイム交通情報 — ${fmtTime(now)} 更新</div>`;
-}
-
 function showTrafficSetup(){
   const key=getGMapsKey();
   document.getElementById('trafficBody').innerHTML=`
@@ -1267,10 +1632,9 @@ function showTrafficSetup(){
         <input class="gcal-input" id="gmapsKeyInput" type="text" placeholder="AIzaSy..." value="${key}">
         <button class="gcal-save-btn" onclick="saveGMapsKeyAndLoad()">保存</button>
       </div>
-      <div class="gcal-id-hint">※ APIキーはこのブラウザにのみ保存されます<br>※ 個人利用なら無料枠（月$200クレジット）で十分です</div>
+      <div class="gcal-id-hint">※ APIキーはこのブラウザにのみ保存されます</div>
     </div>`;
 }
-
 function saveGMapsKeyAndLoad(){
   const val=(document.getElementById('gmapsKeyInput')?.value||'').trim();
   if(!val) return;
@@ -1279,239 +1643,49 @@ function saveGMapsKeyAndLoad(){
   fetchTrafficData();
 }
 
-/* ══ RADAR — RainViewer ══ */
-const MAP_STYLES=[
-  {label:'🗺 地図',  url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', sub:'abcd', attr:'&copy; CARTO &copy; OSM'},
-  {label:'🛰 衛星',  url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', sub:'', attr:'Esri World Imagery'},
-  {label:'🌑 ダーク',url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', sub:'abcd', attr:'&copy; CARTO &copy; OSM'},
-  {label:'🏔 地形',  url:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', sub:'abc', attr:'&copy; OpenTopoMap (CC-BY-SA)'},
-];
-let currentMapStyle=parseInt(localStorage.getItem('map_style')||'0');
-let currentLayerType=(()=>{const t=localStorage.getItem('layer_type');return['radar','ir','visible'].includes(t)?t:'radar';})();
-let radarMap=null, baseTileLayer=null, radarLayer=null, satLayer=null;
-
-function setMapStyle(idx){
-  currentMapStyle=idx;
-  localStorage.setItem('map_style',String(idx));
-  document.querySelectorAll('.map-style-btn:not(.lyr-btn)').forEach((b,i)=>b.classList.toggle('active',i===idx));
-  if(!radarMap) return;
-  if(baseTileLayer) radarMap.removeLayer(baseTileLayer);
-  const s=MAP_STYLES[idx];
-  const opts={attribution:s.attr,maxZoom:12};
-  if(s.sub) opts.subdomains=s.sub;
-  baseTileLayer=L.tileLayer(s.url,opts).addTo(radarMap);
-  if(radarLayer){radarMap.removeLayer(radarLayer);radarMap.addLayer(radarLayer);}
-  if(satLayer){radarMap.removeLayer(satLayer);radarMap.addLayer(satLayer);}
-}
-
-function setLayerType(type){
-  currentLayerType=type;
-  localStorage.setItem('layer_type',type);
-  const types=['radar','ir','visible'];
-  document.querySelectorAll('.lyr-btn').forEach((b,i)=>b.classList.toggle('active',types[i]===type));
-  const legend=document.querySelector('.radar-legend');
-  if(legend) legend.style.display=type==='radar'?'':'none';
-  if(!radarMap) return;
-  loadOverlay();
-}
-
-function toggleRadarFullscreen(){
-  const widget=document.getElementById('w-radar');
-  const isFS=widget.classList.toggle('widget-fullscreen');
-  document.body.style.overflow=isFS?'hidden':'';
-  setTimeout(()=>{if(radarMap) radarMap.invalidateSize();},150);
-  if(isFS){
-    const onKey=e=>{
-      if(e.key==='Escape'){
-        widget.classList.remove('widget-fullscreen');
-        document.body.style.overflow='';
-        if(radarMap) setTimeout(()=>radarMap.invalidateSize(),100);
-        document.removeEventListener('keydown',onKey);
-      }
-    };
-    document.addEventListener('keydown',onKey);
-  }
-}
-
-// NASA GIBS タイル時刻計算（遅延分を引いて10分刻みに切り捨て）
-function gibsTime(delayMin){
-  const t=new Date(Date.now()-delayMin*60000);
-  t.setUTCMinutes(Math.floor(t.getUTCMinutes()/10)*10,0,0);
-  return t.toISOString().replace('.000Z','Z');
-}
-
-async function loadOverlay(){
-  if(radarLayer){radarMap.removeLayer(radarLayer);radarLayer=null;}
-  if(satLayer){radarMap.removeLayer(satLayer);satLayer=null;}
-  const pill=document.getElementById('radarTimePill');
-  pill.textContent='読込中…';
-  try{
-    if(currentLayerType==='radar'){
-      const resp=await fetch('https://api.rainviewer.com/public/weather-maps.json');
-      const data=await resp.json();
-      const frames=data.radar.past;
-      if(!frames||!frames.length) throw new Error('no radar frames');
-      const latest=frames[frames.length-1];
-      const dt=new Date(latest.time*1000);
-      const hh=String(dt.getHours()).padStart(2,'0'), mm=String(dt.getMinutes()).padStart(2,'0');
-      pill.textContent=`🌧 ${hh}:${mm}`;
-      radarLayer=L.tileLayer(`${data.host}${latest.path}/256/{z}/{x}/{y}/6/1_1.png`,
-        {opacity:0.6,maxZoom:12,attribution:'RainViewer'}).addTo(radarMap);
-
-    } else if(currentLayerType==='ir'){
-      // NASA GIBS — Himawari赤外（10分毎、約60分遅延）
-      const time=gibsTime(70);
-      const dt=new Date(Date.now()-70*60000);
-      const hh=String(dt.getHours()).padStart(2,'0'), mm=String(dt.getMinutes()).padStart(2,'0');
-      pill.textContent=`☁ ${hh}:${mm} (Himawari IR)`;
-      satLayer=L.tileLayer(
-        `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Himawari_AHI_Band13_Clean_Infrared/default/${time}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.jpg`,
-        {opacity:0.85,maxZoom:6,attribution:'NASA GIBS / Himawari-9'}).addTo(radarMap);
-
-    } else if(currentLayerType==='visible'){
-      // NASA GIBS — VIIRS可視光（日次、前日更新）
-      const yesterday=new Date(Date.now()-86400000);
-      const dateStr=yesterday.toISOString().slice(0,10);
-      pill.textContent=`🌍 ${dateStr} (VIIRS)`;
-      satLayer=L.tileLayer(
-        `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/${dateStr}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
-        {opacity:1,maxZoom:9,attribution:'NASA GIBS / VIIRS'}).addTo(radarMap);
-    }
-  }catch(e){
-    pill.textContent='取得失敗';
-    console.error('Overlay error:',e);
-  }
-}
-
+/* ══ RADAR ══ */
+let radarMap=null,radarLayer=null;
 async function loadRadar(){
   if(!radarMap){
     radarMap=L.map('radarMap',{center:[36.2,138.0],zoom:6,zoomControl:true});
-    const s=MAP_STYLES[currentMapStyle];
-    const opts={attribution:s.attr,maxZoom:12};
-    if(s.sub) opts.subdomains=s.sub;
-    baseTileLayer=L.tileLayer(s.url,opts).addTo(radarMap);
-    document.querySelectorAll('.map-style-btn:not(.lyr-btn)').forEach((b,i)=>b.classList.toggle('active',i===currentMapStyle));
-    {const types=['radar','ir','visible'];document.querySelectorAll('.lyr-btn').forEach((b,i)=>b.classList.toggle('active',types[i]===currentLayerType));}
-    const legend=document.querySelector('.radar-legend');
-    if(legend) legend.style.display=currentLayerType==='radar'?'':'none';
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+      attribution:'&copy; CARTO &copy; OSM',subdomains:'abcd',maxZoom:12
+    }).addTo(radarMap);
   }
-  await loadOverlay();
-}
-
-
-/* ══ CARD RESIZE ══ */
-function initCardResize(){
-  const SIZES_KEY='card_sizes_v1';
-  const saved=JSON.parse(localStorage.getItem(SIZES_KEY)||'{}');
-
-  document.querySelectorAll('.widget').forEach(widget=>{
-    const id=widget.id;
-    if(saved[id]) widget.style.minHeight=saved[id]+'px';
-
-    const handle=document.createElement('div');
-    handle.className='card-resize-handle';
-    handle.title='ドラッグで高さ変更';
-    widget.appendChild(handle);
-
-    let isResizing=false,startY=0,startH=0;
-
-    function onStart(clientY){
-      isResizing=true;startY=clientY;
-      startH=widget.getBoundingClientRect().height;
-      handle.classList.add('resizing');
-      document.body.style.cursor='s-resize';
-      document.body.style.userSelect='none';
-      document.body.style.webkitUserSelect='none';
+  if(radarLayer){radarMap.removeLayer(radarLayer);radarLayer=null;}
+  try{
+    const ts=await(await fetch('https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json')).json();
+    const vt=ts[0]?.validtime||ts[0]?.basetime||'';
+    let label='更新時刻不明';
+    if(vt.length>=13){
+      const utc=new Date(`${vt.slice(0,4)}-${vt.slice(4,6)}-${vt.slice(6,8)}T${vt.slice(9,11)}:${vt.slice(11,13)}:00Z`);
+      const jst=new Date(utc.getTime()+9*3600000);
+      label=`${String(jst.getUTCHours()).padStart(2,'0')}:${String(jst.getUTCMinutes()).padStart(2,'0')} JST`;
     }
-    function onMove(clientY){
-      if(!isResizing) return;
-      const newH=Math.max(80,startH+(clientY-startY));
-      widget.style.minHeight=newH+'px';
-      if(radarMap&&id==='w-radar') radarMap.invalidateSize();
-    }
-    function onEnd(){
-      if(!isResizing) return;
-      isResizing=false;
-      handle.classList.remove('resizing');
-      document.body.style.cursor='';
-      document.body.style.userSelect='';
-      document.body.style.webkitUserSelect='';
-      const sizes=JSON.parse(localStorage.getItem(SIZES_KEY)||'{}');
-      sizes[id]=Math.round(widget.getBoundingClientRect().height);
-      localStorage.setItem(SIZES_KEY,JSON.stringify(sizes));
-      if(radarMap&&id==='w-radar') setTimeout(()=>radarMap.invalidateSize(),60);
-    }
-
-    handle.addEventListener('mousedown',e=>{onStart(e.clientY);e.preventDefault();e.stopPropagation();});
-    document.addEventListener('mousemove',e=>onMove(e.clientY));
-    document.addEventListener('mouseup',onEnd);
-    handle.addEventListener('touchstart',e=>{onStart(e.touches[0].clientY);e.stopPropagation();},{passive:true});
-    handle.addEventListener('touchmove',e=>{onMove(e.touches[0].clientY);e.preventDefault();},{passive:false});
-    handle.addEventListener('touchend',onEnd);
-
-    /* ── 横リサイズハンドル（個別カード幅） ── */
-    {
-      const hHandle=document.createElement('div');
-      hHandle.className='card-resize-h right';
-      hHandle.title='ドラッグで幅変更';
-      widget.appendChild(hHandle);
-      const cRoot=document.getElementById('columnsRoot');
-      let hResizing=false,hStartX=0,hStartW=0,hCW=0;
-
-      function hSetWidth(clientX){
-        const newW=Math.max(hCW*0.2,hStartW+(clientX-hStartX));
-        const pct=Math.min(100,newW/hCW*100);
-        widget.style.flex=`0 0 ${pct>=99?'100%':'calc('+pct.toFixed(1)+'% - 6px)'}`;
-        if(radarMap&&widget.id==='w-radar') radarMap.invalidateSize();
-      }
-      function hSave(){
-        const pct=parseFloat((widget.getBoundingClientRect().width/cRoot.getBoundingClientRect().width*100).toFixed(1));
-        const widths=JSON.parse(localStorage.getItem('card_widths_v1')||'{}');
-        widths[widget.id]=pct;localStorage.setItem('card_widths_v1',JSON.stringify(widths));
-        if(radarMap&&widget.id==='w-radar') setTimeout(()=>radarMap.invalidateSize(),60);
-      }
-
-      hHandle.addEventListener('mousedown',e=>{
-        hResizing=true;hStartX=e.clientX;
-        hStartW=widget.getBoundingClientRect().width;
-        hCW=cRoot.getBoundingClientRect().width;
-        hHandle.classList.add('resizing');
-        document.body.style.cursor='ew-resize';document.body.style.userSelect='none';
-        e.preventDefault();e.stopPropagation();
-      });
-      document.addEventListener('mousemove',e=>{if(hResizing) hSetWidth(e.clientX);});
-      document.addEventListener('mouseup',()=>{
-        if(!hResizing) return;
-        hResizing=false;hHandle.classList.remove('resizing');
-        document.body.style.cursor='';document.body.style.userSelect='';hSave();
-      });
-      hHandle.addEventListener('touchstart',e=>{
-        hResizing=true;hStartX=e.touches[0].clientX;
-        hStartW=widget.getBoundingClientRect().width;
-        hCW=cRoot.getBoundingClientRect().width;
-        hHandle.classList.add('resizing');e.stopPropagation();
-      },{passive:true});
-      hHandle.addEventListener('touchmove',e=>{
-        if(hResizing){hSetWidth(e.touches[0].clientX);e.preventDefault();}
-      },{passive:false});
-      hHandle.addEventListener('touchend',()=>{if(hResizing){hResizing=false;hHandle.classList.remove('resizing');hSave();}});
-    }
-  });
+    document.getElementById('radarTimePill').textContent=`気象庁ナウキャスト ${label}`;
+    radarLayer=L.tileLayer(
+      `https://www.jma.go.jp/bosai/jmatile/data/nowc/${vt}/none/{z}/{x}/{y}/surf/hrpns.png`,
+      {opacity:0.75,maxZoom:10,attribution:'気象庁 降水ナウキャスト'}
+    ).addTo(radarMap);
+  }catch(e){document.getElementById('radarTimePill').textContent='取得失敗';console.error(e);}
 }
 
 /* ══════════════════════════════════════
-   DRAG & DROP（デスクトップ + iOS）
+   DRAG & DROP（列またぎ対応）
+   ⠿ ハンドルを掴んでドラッグ
+   - 同一列内：上下の順番を変える
+   - 別の列へ：列を移動
+   iOS Touch にも対応
 ══════════════════════════════════════ */
-let dragW=null;
+let dragW=null; // ドラッグ中ウィジェット
 
 function initDragDrop(){
   const root=document.getElementById('columnsRoot');
 
+  /* ── Desktop drag ── */
   root.addEventListener('dragstart',e=>{
-    if(e.target.closest('button,input,a,select,label')) return;
-    if(e.target.closest('.leaflet-container,.card-resize-handle,.card-resize-h')) return;
     const w=e.target.closest('.widget');
-    if(!w) return;
+    if(!w)return;
     dragW=w;
     setTimeout(()=>w.classList.add('dragging'),0);
     e.dataTransfer.effectAllowed='move';
@@ -1526,47 +1700,43 @@ function initDragDrop(){
     if(!w||w===dragW) return;
     clearDragOver();
     const rect=w.getBoundingClientRect();
-    if(e.clientX<rect.left+rect.width/2) w.classList.add('drag-over-left');
-    else w.classList.add('drag-over-right');
+    const half=rect.top+rect.height/2;
+    if(e.clientY<half) w.classList.add('drag-over-top');
+    else               w.classList.add('drag-over-bottom');
   });
   root.addEventListener('dragleave',e=>{
     if(!e.relatedTarget||!e.relatedTarget.closest('.widget')) clearDragOver();
   });
   root.addEventListener('drop',e=>{
     e.preventDefault();
-    if(!dragW){clearDragOver();return;}
     const target=e.target.closest('.widget');
-    if(target&&target!==dragW){
-      const rect=target.getBoundingClientRect();
-      const before=e.clientX<rect.left+rect.width/2;
-      if(before) root.insertBefore(dragW,target);
-      else root.insertBefore(dragW,target.nextSibling);
-    } else if(!target){
-      root.appendChild(dragW);
-    } else {
-      clearDragOver(); return;
-    }
+    if(!target||!dragW||target===dragW){clearDragOver();return;}
+    const rect=target.getBoundingClientRect();
+    const before=e.clientY<rect.top+rect.height/2;
+    const col=target.closest('.column');
+    if(before) col.insertBefore(dragW,target);
+    else       col.insertBefore(dragW,target.nextSibling);
+    dragW.dataset.col=col.id==='col-0'?'0':'1';
     clearDragOver(); saveLayout();
     if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
   });
 
   function clearDragOver(){
     document.querySelectorAll('.widget').forEach(n=>{
-      n.classList.remove('drag-over-left','drag-over-right');
+      n.classList.remove('drag-over-top','drag-over-bottom');
     });
   }
 
-  /* iOS Touch */
+  /* ── iOS Touch drag ── */
   let tSrc=null,tClone=null,tStartX=0,tStartY=0,tTimer=null;
 
   root.addEventListener('touchstart',e=>{
-    if(e.target.closest('button,input,a,select,label,.card-resize-handle,.card-resize-h')) return;
-    const h=e.target.closest('.card-header');
+    const h=e.target.closest('.drag-handle');
     const w=h&&h.closest('.widget');
-    if(!w) return;
+    if(!w)return;
     tStartX=e.touches[0].clientX; tStartY=e.touches[0].clientY; tSrc=w;
     tTimer=setTimeout(()=>{
-      if(!tSrc) return;
+      if(!tSrc)return;
       const r=w.getBoundingClientRect();
       tClone=w.cloneNode(true);
       Object.assign(tClone.style,{
@@ -1581,7 +1751,7 @@ function initDragDrop(){
   },{passive:true});
 
   root.addEventListener('touchmove',e=>{
-    if(!tSrc||!tClone) return;
+    if(!tSrc||!tClone)return;
     e.preventDefault();
     const t=e.touches[0];
     const dx=t.clientX-tStartX, dy=t.clientY-tStartY;
@@ -1592,11 +1762,11 @@ function initDragDrop(){
     const el=document.elementFromPoint(t.clientX,t.clientY);
     tClone.style.display='';
     const over=el&&el.closest('.widget');
-    document.querySelectorAll('.widget').forEach(n=>n.classList.remove('drag-over-left','drag-over-right'));
+    document.querySelectorAll('.widget').forEach(n=>n.classList.remove('drag-over-top','drag-over-bottom'));
     if(over&&over!==tSrc){
       const rect=over.getBoundingClientRect();
-      if(t.clientX<rect.left+rect.width/2) over.classList.add('drag-over-left');
-      else over.classList.add('drag-over-right');
+      if(t.clientY<rect.top+rect.height/2) over.classList.add('drag-over-top');
+      else over.classList.add('drag-over-bottom');
     }
   },{passive:false});
 
@@ -1611,48 +1781,44 @@ function initDragDrop(){
       const target=el&&el.closest('.widget');
       if(target&&target!==tSrc){
         const rect=target.getBoundingClientRect();
-        const before=t.clientX<rect.left+rect.width/2;
-        if(before) root.insertBefore(tSrc,target);
-        else root.insertBefore(tSrc,target.nextSibling);
+        const before=t.clientY<rect.top+rect.height/2;
+        const col=target.closest('.column');
+        if(before) col.insertBefore(tSrc,target);
+        else       col.insertBefore(tSrc,target.nextSibling);
+        tSrc.dataset.col=col.id==='col-0'?'0':'1';
         saveLayout();
         if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
       }
       tSrc.style.opacity='';
       tClone.remove(); tClone=null;
-      document.querySelectorAll('.widget').forEach(n=>n.classList.remove('drag-over-left','drag-over-right'));
+      document.querySelectorAll('.widget').forEach(n=>n.classList.remove('drag-over-top','drag-over-bottom'));
     }
     tSrc=null;
   });
 }
 
 /* ── レイアウト保存/復元 ── */
-const LAYOUT_KEY='dashboard_layout_v4';
+const LAYOUT_KEY='dashboard_layout_v3';
 function saveLayout(){
-  const root=document.getElementById('columnsRoot');
   const layout=[];
-  root.querySelectorAll(':scope > .widget').forEach(w=>{
-    layout.push({id:w.id,hidden:w.style.display==='none',flex:w.style.flex||''});
+  document.querySelectorAll('.column').forEach((col,ci)=>{
+    col.querySelectorAll('.widget').forEach(w=>{
+      layout.push({id:w.id,col:ci,hidden:w.style.display==='none'});
+    });
   });
   localStorage.setItem(LAYOUT_KEY,JSON.stringify(layout));
 }
 function restoreLayout(){
-  const root=document.getElementById('columnsRoot');
-  // カード個別幅を復元
-  const widths=JSON.parse(localStorage.getItem('card_widths_v1')||'{}');
-  Object.entries(widths).forEach(([id,pct])=>{
-    const el=document.getElementById(id);
-    if(el) el.style.flex=`0 0 ${pct>=99?'100%':'calc('+parseFloat(pct).toFixed(1)+'% - 6px)'}`;
-  });
   const saved=localStorage.getItem(LAYOUT_KEY);
-  if(!saved) return;
+  if(!saved)return;
   try{
     const layout=JSON.parse(saved);
-    layout.forEach(({id,hidden,flex})=>{
+    const cols=[document.getElementById('col-0'),document.getElementById('col-1')];
+    layout.forEach(({id,col,hidden})=>{
       const el=document.getElementById(id);
-      if(!el) return;
-      root.appendChild(el);
+      if(!el)return;
+      cols[col]?.appendChild(el);
       if(!hidden) el.style.display='';
-      if(flex&&!widths[id]) el.style.flex=flex;
     });
   }catch(e){}
 }
@@ -1663,37 +1829,48 @@ function updateFooter(){
     `最終更新 ${fmtTime(new Date())} — タップで再読み込み ｜ ⠿ ドラッグで並び替え`;
 }
 
-/* ── Enter key for location search ── */
-document.getElementById('locSearchInput').addEventListener('keydown',e=>{
-  if(e.key==='Enter') searchLocation();
-});
+/* ── INIT ── */
+let redirectAttempted = false;
 
-/* ══ INIT ══ */
 async function init(){
-  gcalHandleRedirect();
+  const hadCodeParam = new URLSearchParams(location.search).has('code') || new URLSearchParams(location.search).has('error');
+  const redirectResult=await gcalHandleRedirect(); // true=成功 / false=エラー or 何もなし
   restoreLayout();
-  updateLocUI();
-  updateCalDateLabel();
-  updateWeatherDateLabel();
-  initCardResize();
   initDragDrop();
+
+  // 保存済みの表示モードをタブUIに反映
+  document.querySelectorAll('.cal-mode-tab').forEach(t=>{
+    t.classList.toggle('active',t.dataset.mode===calMode);
+  });
+
+  // YCAT方向トグルの初期状態反映
+  initYcatToggleState();
+
+  // 交通リンク一覧は常時表示
+  renderTransport();
+
+  // リダイレクト処理でエラー表示済み（code/errorパラメータがあったのに失敗した）場合はカレンダー再読込しない
+  const skipCalendarReload = hadCodeParam && redirectResult===false;
+
+  const calPromise = skipCalendarReload ? Promise.resolve() : loadCalendar();
+
   setYcatDest(currentYcatDest);
-  await Promise.all([loadCalendar(), loadWeather(), loadRadar(), loadTrainDelay(), fetchTrafficData()]);
+  await Promise.all([calPromise,loadWeather(),loadRadar(),loadYcatStatus(),loadTrainDelay(),fetchTrafficData()]);
   updateFooter();
+
+  if(ycatRefreshTimer) clearInterval(ycatRefreshTimer);
+  ycatRefreshTimer=setInterval(loadYcatStatus, 5*60*1000);
   setInterval(loadTrainDelay, 5*60*1000);
   setInterval(renderYcatBus, 60*1000);
   setInterval(fetchTrafficData, 5*60*1000);
 }
 
-document.getElementById('footer').addEventListener('click', async()=>{
-  document.getElementById('scheduleBody').innerHTML=
-    `<div class="loading-text"><span class="spinner"></span> 更新中…</div>`;
-  document.getElementById('weatherHourly').innerHTML=
-    `<div class="loading-text"><span class="spinner"></span> 更新中…</div>`;
+document.getElementById('footer').addEventListener('click',async()=>{
+  document.getElementById('scheduleBody').innerHTML=`<div class="loading-text"><span class="spinner"></span> 更新中…</div>`;
+  document.getElementById('weatherHourly').innerHTML=`<div class="loading-text"><span class="spinner"></span> 更新中…</div>`;
   document.getElementById('weatherSummary').innerHTML='';
-  document.getElementById('trainBody').innerHTML=
-    `<div class="loading-text"><span class="spinner"></span> 更新中…</div>`;
-  await Promise.all([loadCalendar(), loadWeather(), loadRadar(), loadTrainDelay(), fetchTrafficData()]);
+  document.getElementById('trainBody').innerHTML=`<div class="loading-text"><span class="spinner"></span> 更新中…</div>`;
+  await Promise.all([loadCalendar(),loadWeather(),loadRadar(),loadYcatStatus(),loadTrainDelay(),fetchTrafficData()]);
   renderYcatBus();
   updateFooter();
 });
