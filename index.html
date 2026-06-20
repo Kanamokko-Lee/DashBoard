@@ -475,25 +475,6 @@ body{
         </div>
       </div>
 
-      <div class="widget" id="w-transport" data-col="0" draggable="true">
-        <div class="card">
-          <div class="card-header">
-            <span class="drag-handle">⠿</span>
-            <span class="card-icon">🚃</span>
-            <span class="card-title">交通・遅延情報</span>
-            <span class="card-refresh" id="ycatRefresh"></span>
-          </div>
-          <div class="ycat-toggle-row">
-            <button class="ycat-toggle-btn active" id="ycatDirYcat2Haneda" onclick="setYcatDir('ycat2haneda')">YCAT→羽田</button>
-            <button class="ycat-toggle-btn" id="ycatDirHaneda2Ycat" onclick="setYcatDir('haneda2ycat')">羽田→YCAT</button>
-          </div>
-          <div id="ycatStatusArea">
-            <div class="loading-text"><span class="spinner"></span> 取得中…</div>
-          </div>
-          <div class="transport-body" id="transportBody"></div>
-        </div>
-      </div>
-
       <div class="widget" id="w-train" data-col="0" draggable="true">
         <div class="card">
           <div class="card-header">
@@ -515,6 +496,14 @@ body{
             <span class="card-icon">🚌</span>
             <span class="card-title">YCATバス時刻</span>
             <a class="cal-settings-btn" href="https://www.ycat.co.jp/route/" target="_blank" title="公式サイト" style="font-size:10px;text-decoration:none;display:flex;align-items:center;justify-content:center;">🔗</a>
+            <span class="card-refresh" id="ycatRefresh"></span>
+          </div>
+          <div class="ycat-toggle-row">
+            <button class="ycat-toggle-btn active" id="ycatDirYcat2Haneda" onclick="setYcatDir('ycat2haneda')">YCAT→羽田</button>
+            <button class="ycat-toggle-btn" id="ycatDirHaneda2Ycat" onclick="setYcatDir('haneda2ycat')">羽田→YCAT</button>
+          </div>
+          <div id="ycatStatusArea">
+            <div class="loading-text"><span class="spinner"></span> 取得中…</div>
           </div>
           <div class="loc-row" id="ycatDestRow">
             <button class="loc-btn" id="ycatBtn-haneda" onclick="setYcatDest('haneda')">✈ 羽田空港</button>
@@ -1342,17 +1331,6 @@ function initYcatToggleState(){
   document.getElementById('ycatDirHaneda2Ycat')?.classList.toggle('active', ycatDir==='haneda2ycat');
 }
 
-function renderTransport(){
-  document.getElementById('transportBody').innerHTML=[
-    {icon:'🚃',name:'Yahoo!路線 遅延情報',sub:'JR・私鉄のリアルタイム遅延',url:'https://transit.yahoo.co.jp/traininfo/top'},
-    {icon:'🚗',name:'Yahoo!カーナビ 渋滞情報',sub:'現在の道路状況',url:'https://map.yahoo.co.jp/'},
-    {icon:'✈️',name:'Flightradar24',sub:'フライト・気象レーダー',url:'https://www.flightradar24.com/35.68,139.76/8'},
-  ].map(l=>`<a class="transport-row" href="${l.url}" target="_blank">
-    <div class="transport-icon">${l.icon}</div>
-    <div class="transport-info"><div class="transport-name">${l.name}</div><div class="transport-sub">${l.sub}</div></div>
-    <div class="transport-status status-check">確認する</div></a>`).join('');
-}
-
 const TRAIN_LINES_KEY='train_selected_v1';
 const TRAIN_LINES=[
   {id:'jrtokaido',  name:'JR東海道線',     keys:['東海道線']},
@@ -1600,6 +1578,7 @@ async function loadRadar(){
     try{
       const ts=await(await fetch('https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json')).json();
       const vt=ts[0]?.validtime||ts[0]?.basetime||'';
+      const bt=ts[0]?.basetime||vt;
       let label='更新時刻不明';
       if(vt.length>=13){
         const utc=new Date(`${vt.slice(0,4)}-${vt.slice(4,6)}-${vt.slice(6,8)}T${vt.slice(9,11)}:${vt.slice(11,13)}:00Z`);
@@ -1608,7 +1587,7 @@ async function loadRadar(){
       }
       document.getElementById('radarTimePill').textContent=`気象庁ナウキャスト ${label}`;
       radarLayer=L.tileLayer(
-        `https://www.jma.go.jp/bosai/jmatile/data/nowc/${vt}/none/{z}/{x}/{y}/surf/hrpns.png`,
+        `https://www.jma.go.jp/bosai/jmatile/data/nowc/${bt}/none/${vt}/surf/hrpns/{z}/{x}/{y}.png`,
         {opacity:0.75,maxZoom:10,attribution:'気象庁 降水ナウキャスト'}
       ).addTo(radarMap);
     }catch(e){
@@ -1813,17 +1792,30 @@ function applyColCount(n){
   }
   if(radarMap) setTimeout(()=>radarMap.invalidateSize(),100);
 }
+
+/* 列数変更時、全ウィジェットを左から順に均等に再配分する */
+function redistributeWidgets(n){
+  const cols=[
+    document.getElementById('col-0'),
+    document.getElementById('col-1'),
+    document.getElementById('col-2'),
+  ];
+  // 現在の全ウィジェットをDOM順（列0→1→2の順）で収集
+  const allWidgets=[];
+  cols.forEach(col=>{
+    if(!col) return;
+    [...col.querySelectorAll('.widget')].forEach(w=>allWidgets.push(w));
+  });
+  // n個の列に、上から順番にラウンドロビンで配分
+  allWidgets.forEach((w,i)=>{
+    const targetColIdx = i % n;
+    cols[targetColIdx].appendChild(w);
+    w.dataset.col=String(targetColIdx);
+  });
+}
+
 function setColCount(n){
-  for(let c=n;c<=2;c++){
-    const fromCol=document.getElementById(`col-${c}`);
-    const toCol=document.getElementById(`col-${n-1}`);
-    if(fromCol&&toCol){
-      [...fromCol.querySelectorAll('.widget')].forEach(w=>{
-        toCol.appendChild(w);
-        w.dataset.col=String(n-1);
-      });
-    }
-  }
+  redistributeWidgets(n);
   localStorage.setItem('col_count',String(n));
   applyColCount(n);
   saveLayout();
@@ -1881,8 +1873,6 @@ async function init(){
 
   document.getElementById('radarSrcJma')?.classList.toggle('active',radarSource==='jma');
   document.getElementById('radarSrcRainviewer')?.classList.toggle('active',radarSource==='rainviewer');
-
-  renderTransport();
 
   const skipCalendarReload = hadCodeParam && redirectResult===false;
 
