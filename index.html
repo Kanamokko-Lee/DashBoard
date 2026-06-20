@@ -1945,7 +1945,12 @@ function setBaseMap(type){
 
 async function loadRadar(){
   if(!radarMap){
-    radarMap=L.map('radarMap',{center:[36.2,138.0],zoom:6,zoomControl:true,maxZoom:18});
+    radarMap=L.map('radarMap',{
+      center:[36.2,138.0],zoom:6,zoomControl:true,maxZoom:18,
+      inertia:false,        // 慣性スクロールを無効化（ドラッグ中の白っぽさ対策）
+      fadeAnimation:false,  // タイルのフェードイン演出を無効化
+      zoomAnimation:true,
+    });
     const cfg=BASE_MAPS[baseMapType] || BASE_MAPS.dark;
     baseMapLayer=L.tileLayer(cfg.url,cfg.options).addTo(radarMap);
   }
