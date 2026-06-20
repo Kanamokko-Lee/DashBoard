@@ -44,8 +44,6 @@ body{
   display:flex; flex-direction:column; min-height:100vh;
   padding:env(safe-area-inset-top,12px) 0 env(safe-area-inset-bottom,0);
 }
-
-/* ── HEADER ── */
 .header{
   padding:18px 22px 0;
   display:flex; justify-content:space-between; align-items:center;
@@ -55,8 +53,6 @@ body{
 .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
 .weather-temp-big{font-size:42px;font-weight:200;line-height:1;letter-spacing:-1px;}
 .weather-desc{font-size:12px;color:var(--text-sub);text-align:right;}
-
-/* ── RUNWAY ── */
 .runway{
   height:1px; background:var(--runway); margin:12px 0 8px; position:relative;
 }
@@ -64,21 +60,12 @@ body{
   content:'▶'; position:absolute; top:-7px; font-size:10px; color:var(--accent); opacity:0.5;
 }
 .runway::before{left:22px;} .runway::after{right:22px;transform:rotate(180deg);}
-
-/* ══════════════════════════════════════
-   MASONRY-STYLE COLUMN LAYOUT
-   grid-area → 2列のFlexbox縦積み。
-   ウィジェットのdata-col属性で左(0)/右(1)を管理。
-   ドラッグで列と順番を変更できる。
-══════════════════════════════════════ */
 .grid-area{flex:1;padding:6px 10px 20px;}
-
 .columns{
   display:flex;
   gap:12px;
   align-items:flex-start;
 }
-
 .column{
   flex:1;
   display:flex;
@@ -86,14 +73,10 @@ body{
   gap:12px;
   min-width:0;
 }
-
-/* single-column mode under 600px */
 @media(max-width:600px){
   .columns{flex-direction:column;}
   .column{width:100%;}
 }
-
-/* ── WIDGET WRAPPER ── */
 .widget{
   position:relative;
   cursor:default;
@@ -107,8 +90,6 @@ body{
 .widget.drag-over-bottom{
   border-bottom:3px solid var(--accent);
 }
-
-/* ── CARD ── */
 .card{
   background:var(--surface); border-radius:14px;
   border:1px solid var(--border); overflow:hidden;
@@ -126,11 +107,7 @@ body{
   text-transform:uppercase;color:var(--text-sub);
 }
 .card-refresh{margin-left:auto;font-size:10px;color:var(--text-dim);}
-
-/* ── SCHEDULE ── */
 .schedule-body{padding:8px 0 4px;}
-
-/* 終日予定（バー形式、上部にまとめる） */
 .allday-bar{
   display:flex;align-items:center;gap:8px;
   margin:0 15px 8px;padding:7px 12px;border-radius:9px;
@@ -138,8 +115,6 @@ body{
 }
 .allday-bar .ab-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
 .allday-bar .ab-title{font-size:12px;font-weight:500;color:var(--text-sub);}
-
-/* 次の予定 強調ヒーローカード */
 .next-event-hero{
   margin:0 15px 12px;padding:16px;border-radius:14px;
   background:linear-gradient(135deg,var(--accent) 0%,#2e6fd9 100%);
@@ -161,8 +136,6 @@ body{
 .hero-title{font-size:15px;font-weight:600;margin-top:6px;line-height:1.3;}
 .hero-meta{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;opacity:0.9;}
 .hero-icon{font-size:20px;position:absolute;top:14px;right:16px;opacity:0.5;}
-
-/* 通常の予定カード */
 .event-card{
   display:flex;align-items:center;gap:11px;
   margin:0 15px 7px;padding:10px 12px;border-radius:11px;
@@ -182,13 +155,9 @@ body{
 .ec-flight-icon{font-size:16px;flex-shrink:0;}
 .event-badge{font-size:9px;padding:2px 6px;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;white-space:nowrap;flex-shrink:0;}
 .event-badge.flight{background:#ff6b2b;}
-
 .no-events{padding:20px 15px;color:var(--text-dim);font-size:13px;text-align:center;}
 .loading-text{padding:16px 15px;color:var(--text-sub);font-size:12px;text-align:center;animation:pulse 1.4s ease-in-out infinite;}
 @keyframes pulse{0%,100%{opacity:0.4;}50%{opacity:1;}}
-
-
-/* ── GCAL SETUP UI ── */
 .gcal-setup{padding:14px 15px 16px;}
 .gcal-setup p{font-size:12px;color:var(--text-sub);margin-bottom:10px;line-height:1.5;}
 .gcal-input-row{display:flex;gap:8px;align-items:stretch;}
@@ -213,8 +182,6 @@ body{
 }
 .gcal-signin-btn:active{opacity:0.8;}
 .gcal-id-hint{margin-top:8px;font-size:11px;color:var(--text-dim);line-height:1.5;}
-
-/* ── CALENDAR TOOLBAR（表示モード切替 + 設定ボタン） ── */
 .cal-toolbar{
   display:flex;align-items:center;gap:8px;
   padding:8px 15px;border-bottom:1px solid var(--border);
@@ -237,8 +204,6 @@ body{
   color:var(--text-sub);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;
 }
 .cal-settings-btn:active{background:var(--border);}
-
-/* ── 設定モーダル（カレンダー選択） ── */
 .cal-modal-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;
   display:flex;align-items:center;justify-content:center;padding:20px;
@@ -275,8 +240,6 @@ body{
   background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;
 }
 .cal-modal-apply-btn:active{opacity:0.8;}
-
-/* ── 週表示（Googleカレンダー風グリッド） ── */
 .week-view{padding:10px 12px 14px;overflow-x:auto;}
 .week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;min-width:560px;}
 .week-day-col{display:flex;flex-direction:column;gap:4px;min-height:140px;}
@@ -292,8 +255,6 @@ body{
   cursor:default;
 }
 .week-event-block.allday{opacity:0.85;}
-
-/* ── 月表示（Googleカレンダー風グリッド） ── */
 .month-view{padding:10px 12px 14px;}
 .month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
 .month-day-head{
@@ -314,8 +275,6 @@ body{
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4;
 }
 .month-event-more{font-size:8px;color:var(--text-dim);padding-left:4px;}
-
-/* ── WEATHER ── */
 .weather-body{padding:11px 15px;}
 .weather-hourly{display:flex;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
 .weather-hourly::-webkit-scrollbar{display:none;}
@@ -328,8 +287,6 @@ body{
 .weather-stat{display:flex;flex-direction:column;gap:1px;flex:1;min-width:50px;}
 .weather-stat-label{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.07em;}
 .weather-stat-val{font-size:14px;font-weight:500;}
-
-/* ── TRANSPORT ── */
 .transport-body{padding:6px 0;}
 .transport-row{display:flex;align-items:center;padding:8px 15px;gap:10px;border-bottom:1px solid var(--border);text-decoration:none;color:var(--text);}
 .transport-row:last-child{border-bottom:none;}
@@ -342,8 +299,6 @@ body{
 .status-ok{background:#26de8122;color:var(--good);}
 .status-warn{background:#ff9f4322;color:var(--warn);}
 .status-bad{background:#ff6b6b22;color:var(--danger);}
-
-/* ── YCAT ライブステータスカード ── */
 .ycat-card{
   margin:8px 15px 4px;padding:12px 14px;border-radius:11px;
   background:var(--surface2);display:flex;align-items:center;gap:12px;
@@ -366,8 +321,6 @@ body{
   color:var(--text-sub);font-size:11px;font-weight:600;cursor:pointer;
 }
 .ycat-toggle-btn.active{background:var(--accent);color:#fff;}
-
-/* ── RADAR ── */
 .radar-body{position:relative;}
 .radar-container{position:relative;width:100%;height:300px;}
 #radarMap{width:100%;height:100%;}
@@ -381,49 +334,48 @@ body{
   font-size:11px;font-weight:500;white-space:nowrap;
 }
 .radar-float-btn:active{background:rgba(74,158,255,0.4);}
+.radar-float-btn.active{background:rgba(74,158,255,0.55);border-color:var(--accent);}
 .radar-time-pill{
   position:absolute;top:8px;right:8px;z-index:1000;
   font-size:10px;color:rgba(255,255,255,0.7);
   background:rgba(0,0,0,0.55);padding:2px 7px;border-radius:8px;
   backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
 }
-.radar-legend{
+.radar-source-toggle{
   position:absolute;top:8px;left:8px;z-index:1000;
+  display:flex;gap:4px;background:rgba(0,0,0,0.55);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  border-radius:8px;padding:3px;
+}
+.radar-source-btn{
+  padding:4px 9px;border-radius:6px;border:none;background:transparent;
+  color:rgba(255,255,255,0.6);font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;
+}
+.radar-source-btn.active{background:var(--accent);color:#fff;}
+.radar-legend{
+  position:absolute;bottom:8px;right:8px;z-index:1000;
   background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
   border-radius:7px;padding:5px 7px;display:flex;flex-direction:column;gap:2px;
 }
 .legend-row{display:flex;align-items:center;gap:4px;font-size:10px;color:rgba(255,255,255,0.7);}
 .legend-swatch{width:14px;height:7px;border-radius:2px;}
-
-/* ── SPINNER ── */
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;}
 @keyframes spin{to{transform:rotate(360deg);}}
-
-/* ── FOOTER ── */
 .footer{text-align:center;padding:5px 14px 14px;font-size:10px;color:var(--text-dim);cursor:pointer;line-height:1.6;}
-
-/* ── LAYOUT COLUMN CONTROLS ── */
 .layout-controls{display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:0 4px 8px;}
 .layout-label{font-size:10px;color:var(--text-dim);margin-right:2px;}
 .col-btn{padding:2px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text-sub);font-size:11px;font-weight:500;cursor:pointer;transition:background 0.15s,color 0.15s;}
 .col-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
 .col-btn:active{opacity:0.8;}
-/* 列数ごとに col-2 の表示を制御 */
 .col-count-1 #col-1,.col-count-1 #col-2{display:none;}
 .col-count-2 #col-2{display:none;}
-
-/* ── LOC BUTTONS (YCAT dest など) ── */
 .loc-row{display:flex;gap:5px;align-items:center;padding:7px 15px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
 .loc-btn{padding:3px 11px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);color:var(--text-sub);font-size:11px;cursor:pointer;white-space:nowrap;transition:background 0.15s,color 0.15s,border-color 0.15s;}
 .loc-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
 .loc-btn:active{opacity:0.7;}
-
-/* ── CARD RESIZE HANDLE ── */
 .card-resize-handle{position:absolute;bottom:0;left:0;right:0;height:10px;cursor:s-resize;z-index:5;}
 .card-resize-handle::after{content:'';position:absolute;bottom:0;left:5%;right:5%;height:2px;background:var(--border);border-radius:1px;transition:background 0.15s;}
 .card-resize-handle:hover::after,.card-resize-handle.resizing::after{background:var(--accent);}
-
-/* ── TRAIN STATUS ── */
 .train-settings-panel{display:none;padding:8px 15px;border-bottom:1px solid var(--border);background:var(--surface2);}
 .train-settings-panel.open{display:block;}
 .train-line-grid{display:flex;flex-wrap:wrap;gap:5px;padding:4px 0;}
@@ -435,14 +387,12 @@ body{
 .train-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;white-space:nowrap;}
 .badge-ok{background:#26de8122;color:var(--good);}
 .badge-delay{background:#ff6b6b22;color:var(--danger);}
-/* ── YCAT BUS ── */
 .bus-row{display:flex;align-items:center;padding:7px 15px;gap:8px;border-bottom:1px solid var(--border);}
 .bus-row:last-child{border-bottom:none;}
 .bus-time{font-size:16px;font-weight:500;font-variant-numeric:tabular-nums;min-width:50px;}
 .bus-until{font-size:11px;color:var(--accent);font-weight:600;min-width:65px;text-align:right;}
 .bus-next-label{font-size:9px;padding:2px 7px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;white-space:nowrap;}
 .bus-hint{padding:5px 15px 9px;font-size:10px;color:var(--text-dim);line-height:1.6;}
-/* ── TRAFFIC TIME ── */
 .traffic-time-block{padding:12px 15px;}
 .traffic-time-block+.traffic-time-block{border-top:1px solid var(--border);}
 .traffic-route-label{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-sub);margin-bottom:8px;flex-wrap:wrap;}
@@ -460,7 +410,6 @@ body{
 </head>
 <body>
 
-<!-- HEADER -->
 <div class="header">
   <div>
     <div class="clock" id="clock">--:--</div>
@@ -474,7 +423,6 @@ body{
 
 <div class="runway"></div>
 
-<!-- COLUMN GRID -->
 <div class="grid-area">
   <div class="layout-controls">
     <span class="layout-label">列数</span>
@@ -484,7 +432,6 @@ body{
   </div>
   <div class="columns" id="columnsRoot">
 
-    <!-- 左列 -->
     <div class="column" id="col-0">
 
       <div class="widget" id="w-weather" data-col="0" draggable="true">
@@ -547,7 +494,6 @@ body{
         </div>
       </div>
 
-      <!-- 鉄道運行情報ウィジェット -->
       <div class="widget" id="w-train" data-col="0" draggable="true">
         <div class="card">
           <div class="card-header">
@@ -562,7 +508,6 @@ body{
         </div>
       </div>
 
-      <!-- YCATバス時刻ウィジェット -->
       <div class="widget" id="w-ycat" data-col="0" draggable="true">
         <div class="card">
           <div class="card-header">
@@ -579,7 +524,6 @@ body{
         </div>
       </div>
 
-      <!-- 道路渋滞情報ウィジェット -->
       <div class="widget" id="w-traffic" data-col="0" draggable="true">
         <div class="card">
           <div class="card-header">
@@ -593,9 +537,8 @@ body{
         </div>
       </div>
 
-    </div><!-- /col-0 -->
+    </div>
 
-    <!-- 右列 -->
     <div class="column" id="col-1">
 
       <div class="widget" id="w-radar" data-col="1" draggable="true">
@@ -608,6 +551,10 @@ body{
           <div class="radar-body">
             <div class="radar-container">
               <div id="radarMap"></div>
+              <div class="radar-source-toggle">
+                <button class="radar-source-btn active" id="radarSrcJma" onclick="setRadarSource('jma')">気象庁</button>
+                <button class="radar-source-btn" id="radarSrcRainviewer" onclick="setRadarSource('rainviewer')">RainViewer</button>
+              </div>
               <div class="radar-time-pill" id="radarTimePill">読込中…</div>
               <div class="radar-legend">
                 <div class="legend-row"><div class="legend-swatch" style="background:#00c8ff"></div>弱</div>
@@ -626,12 +573,12 @@ body{
         </div>
       </div>
 
-    </div><!-- /col-1 -->
+    </div>
 
-    <div class="column" id="col-2"></div><!-- /col-2 -->
+    <div class="column" id="col-2"></div>
 
-  </div><!-- /columns -->
-</div><!-- /grid-area -->
+  </div>
+</div>
 
 <div class="footer" id="footer">
   タップで再読み込み &nbsp;｜&nbsp; ⠿ ドラッグで並び替え
@@ -640,7 +587,6 @@ body{
 <script>
 'use strict';
 
-/* ══ CLOCK ══ */
 const WDAYS=['日','月','火','水','木','金','土'];
 function updateClock(){
   const n=new Date();
@@ -652,11 +598,6 @@ function updateClock(){
 updateClock(); setInterval(updateClock,15000);
 function fmtTime(d){return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
 
-/* ══════════════════════════════════════
-   GOOGLE CALENDAR — OAuth2 (Authorization Code + Refresh Token)
-   Cloudflare Worker 経由でトークン交換することで
-   リフレッシュトークンを使った長期間ログイン維持を実現
-══════════════════════════════════════ */
 const GCAL_CLIENT_KEY  = 'gcal_client_id';
 const GCAL_PROXY_KEY   = 'gcal_proxy_url';
 const GCAL_ACCESS_KEY  = 'gcal_access_token';
@@ -670,7 +611,7 @@ function gcalProxyUrl(){ return (localStorage.getItem(GCAL_PROXY_KEY)||'').repla
 function gcalGetAccessToken(){
   const exp=localStorage.getItem(GCAL_EXPIRY_KEY);
   if(exp && Date.now()<Number(exp)) return localStorage.getItem(GCAL_ACCESS_KEY);
-  return null; // 期限切れ or 未取得
+  return null;
 }
 function gcalSaveAccessToken(tok,sec){
   localStorage.setItem(GCAL_ACCESS_KEY,tok);
@@ -684,7 +625,6 @@ function gcalClearAll(){
   localStorage.removeItem(GCAL_REFRESH_KEY);
 }
 
-/* サインイン開始（authorization code flow） */
 function gcalSignIn(){
   const cid=gcalClientId();
   const proxy=gcalProxyUrl();
@@ -695,11 +635,10 @@ function gcalSignIn(){
     +`&redirect_uri=${encodeURIComponent(redirect)}`
     +'&response_type=code'
     +`&scope=${encodeURIComponent(GCAL_SCOPES)}`
-    +'&access_type=offline'   // ← リフレッシュトークンをもらうために必須
-    +'&prompt=consent';        // ← 毎回確実にrefresh_tokenを発行させる
+    +'&access_type=offline'
+    +'&prompt=consent';
 }
 
-/* リダイレクト後、?code=... をWorkerに渡してトークン交換 */
 async function gcalHandleRedirect(){
   const params=new URLSearchParams(location.search);
   const code=params.get('code');
@@ -712,7 +651,7 @@ async function gcalHandleRedirect(){
   }
   if(!code) return false;
 
-  history.replaceState(null,'',location.pathname); // URLからcodeを消す
+  history.replaceState(null,'',location.pathname);
 
   const proxy=gcalProxyUrl();
   if(!proxy) return false;
@@ -727,10 +666,9 @@ async function gcalHandleRedirect(){
     const data=await res.json();
     if(data.access_token){
       gcalSaveAccessToken(data.access_token,data.expires_in||3600);
-      gcalSaveRefreshToken(data.refresh_token); // 初回のみ返ってくる
+      gcalSaveRefreshToken(data.refresh_token);
       return true;
     } else {
-      // デバッグ: Workerからのエラー内容を画面に表示
       console.error('Token exchange response:', data);
       showSetupUI(`トークン交換失敗: ${data.error||''} ${data.error_description||JSON.stringify(data)}`);
       return false;
@@ -742,7 +680,6 @@ async function gcalHandleRedirect(){
   return false;
 }
 
-/* アクセストークンをリフレッシュトークンで更新 */
 async function gcalRefreshAccessToken(){
   const proxy=gcalProxyUrl();
   const refreshToken=gcalGetRefreshToken();
@@ -763,7 +700,6 @@ async function gcalRefreshAccessToken(){
   return null;
 }
 
-/* 有効なアクセストークンを返す（必要ならリフレッシュ） */
 async function gcalEnsureToken(){
   let tok=gcalGetAccessToken();
   if(tok) return tok;
@@ -771,7 +707,6 @@ async function gcalEnsureToken(){
   return tok;
 }
 
-/* ── 設定UI を scheduleBody に描画 ── */
 function showSetupUI(msg){
   const cid=gcalClientId();
   const proxy=localStorage.getItem(GCAL_PROXY_KEY)||'';
@@ -807,7 +742,7 @@ function saveClientId(){
   if(!cidVal||!proxyVal){showSetupUI('クライアントIDとWorker URLの両方を入力してください');return;}
   localStorage.setItem(GCAL_CLIENT_KEY,cidVal);
   localStorage.setItem(GCAL_PROXY_KEY,proxyVal);
-  gcalClearAll(); // 再サインイン促す
+  gcalClearAll();
   document.getElementById('scheduleBody').innerHTML=`
     <div class="gcal-setup">
       <p style="color:var(--good)">✓ 設定を保存しました</p>
@@ -815,13 +750,12 @@ function saveClientId(){
     </div>`;
 }
 
-/* ── カレンダー一覧の取得・キャッシュ・選択管理 ── */
 const GCAL_CALLIST_KEY = 'gcal_calendar_list';
 const GCAL_SELECTED_KEY = 'gcal_selected_calendars';
 
 function gcalGetSelectedIds(){
   const raw=localStorage.getItem(GCAL_SELECTED_KEY);
-  if(raw===null) return null; // null = 未設定（全部表示）
+  if(raw===null) return null;
   try{ return JSON.parse(raw); }catch(e){ return null; }
 }
 function gcalSaveSelectedIds(ids){
@@ -857,7 +791,6 @@ async function gcalFetchCalendarList(){
   return list;
 }
 
-/* ── 指定期間の予定を取得（選択カレンダーのみ） ── */
 async function gcalFetchRange(startDate,endDate){
   let token=await gcalEnsureToken();
   if(!token) return null;
@@ -869,7 +802,7 @@ async function gcalFetchRange(startDate,endDate){
     calList=fetched;
   }
 
-  const selectedIds=gcalGetSelectedIds(); // null = 全部
+  const selectedIds=gcalGetSelectedIds();
   const targetCals = selectedIds===null
     ? calList
     : calList.filter(c=>selectedIds.includes(c.id));
@@ -914,7 +847,6 @@ async function gcalFetchRange(startDate,endDate){
   return all;
 }
 
-/* 後方互換：今日だけの取得（旧コード用） */
 async function gcalFetchToday(){
   const now=new Date();
   const start=new Date(now.getFullYear(),now.getMonth(),now.getDate(),0,0,0);
@@ -930,12 +862,9 @@ async function gcalFetchToday(){
   }));
 }
 
-/* ══════════════════════════════════════
-   カレンダー表示モード（日／週／月）
-══════════════════════════════════════ */
 const CAL_MODE_KEY='gcal_view_mode';
 let calMode = localStorage.getItem(CAL_MODE_KEY) || 'day';
-let calAnchorDate = new Date(); // 表示の基準日
+let calAnchorDate = new Date();
 
 function setCalMode(mode){
   calMode=mode;
@@ -961,15 +890,13 @@ function getRangeForMode(){
     return {start,end};
   }
   if(calMode==='week'){
-    const dow=d.getDay(); // 0=日
+    const dow=d.getDay();
     const start=new Date(d.getFullYear(),d.getMonth(),d.getDate()-dow,0,0,0);
     const end=new Date(start.getFullYear(),start.getMonth(),start.getDate()+6,23,59,59);
     return {start,end};
   }
-  // month
   const start=new Date(d.getFullYear(),d.getMonth(),1,0,0,0);
   const end=new Date(d.getFullYear(),d.getMonth()+1,0,23,59,59);
-  // カレンダーグリッド表示用に、月の前後の表示日も含める
   const gridStart=new Date(start); gridStart.setDate(gridStart.getDate()-start.getDay());
   const gridEnd=new Date(end); gridEnd.setDate(gridEnd.getDate()+(6-end.getDay()));
   return {start:gridStart,end:gridEnd,monthStart:start,monthEnd:end};
@@ -990,10 +917,9 @@ function updatePeriodLabel(){
   }
 }
 
-/* ── 日表示：ヒーローカウントダウン＋カードリスト ── */
 let countdownTimer=null;
 
-function renderEvents(events){ // 日表示
+function renderEvents(events){
   const el=document.getElementById('scheduleBody');
   if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
 
@@ -1011,7 +937,6 @@ function renderEvents(events){ // 日表示
   const allDayEvents = events.filter(ev=>ev.isAllDay);
   const timedEvents   = events.filter(ev=>!ev.isAllDay);
 
-  // 「次の予定」候補：今日を表示中で、開始時刻が今より後のもの（一番近いもの）
   const upcoming = isViewingToday
     ? timedEvents
         .map(ev=>({...ev, _startDate: parseTimeToDate(ev.startTime, now)}))
@@ -1023,7 +948,6 @@ function renderEvents(events){ // 日表示
 
   let html='';
 
-  // 終日予定バー
   allDayEvents.forEach(ev=>{
     html+=`
       <div class="allday-bar">
@@ -1032,7 +956,6 @@ function renderEvents(events){ // 日表示
       </div>`;
   });
 
-  // ヒーローカード（次の予定）
   if(nextEvent){
     const isFlight=nextEvent.isFlight;
     html+=`
@@ -1048,7 +971,6 @@ function renderEvents(events){ // 日表示
       </div>`;
   }
 
-  // 残りの予定をカードリストで表示（次の予定以降、または次の予定がない場合は全て）
   const restEvents = nextEvent
     ? timedEvents.filter(ev=>ev!==nextEvent && (!ev._startDate||true)).filter(ev=>ev.startTime!==nextEvent.startTime||ev.title!==nextEvent.title)
     : timedEvents;
@@ -1077,7 +999,6 @@ function renderEvents(events){ // 日表示
 
   el.innerHTML=html;
 
-  // カウントダウンの実時間更新
   if(nextEvent){
     updateHeroCountdown();
     countdownTimer=setInterval(updateHeroCountdown,30000);
@@ -1105,7 +1026,6 @@ function updateHeroCountdown(){
   }
 }
 
-/* "HH:MM" 文字列を、今日の日付のDateオブジェクトに変換 */
 function parseTimeToDate(timeStr,baseDate){
   if(!timeStr||!/^\d{1,2}:\d{2}$/.test(timeStr)) return null;
   const [h,m]=timeStr.split(':').map(Number);
@@ -1152,7 +1072,6 @@ function renderMonthView(events,gridStart,monthStart,monthEnd){
   const cells=[];
   for(let i=0;i<42;i++){
     const d=new Date(gridStart); d.setDate(d.getDate()+i);
-    if(d>monthEnd && i>=35 && d.getMonth()!==monthStart.getMonth()) { /* allow trailing row trim below */ }
     const inMonth = d>=monthStart && d<=monthEnd;
     const isToday=isSameDay(d,today);
     const dayEvents=(events||[]).filter(ev=>isSameDay(ev.start,d)||(ev.isAllDay&&ev.start<=d&&d<ev.end));
@@ -1167,7 +1086,6 @@ function renderMonthView(events,gridStart,monthStart,monthEnd){
         <div class="month-event-dot-row">${pills}${more}</div>
       </div>`);
   }
-  // 6週分あるが、最終週が完全に対象月外なら削る
   let cellsHtml=cells.join('');
   if(cells.length>35){
     const lastWeekAllOutside = (()=>{
@@ -1235,11 +1153,7 @@ async function loadCalendar(){
   }
 }
 
-/* ══════════════════════════════════════
-   カレンダー選択モーダル
-══════════════════════════════════════ */
 async function openCalSettings(){
-  // モーダルの骨組みを先に表示
   const overlay=document.createElement('div');
   overlay.className='cal-modal-overlay';
   overlay.id='calModalOverlay';
@@ -1265,10 +1179,10 @@ async function openCalSettings(){
     if(fetched) calList=fetched;
   }
 
-  const selectedIds=gcalGetSelectedIds(); // null=全部
+  const selectedIds=gcalGetSelectedIds();
 
   const body=document.getElementById('calModalBody');
-  if(!body) return; // モーダルが閉じられていたら中断
+  if(!body) return;
   if(calList.length===0){
     body.innerHTML=`<div class="no-events">カレンダーを取得できませんでした</div>`;
     return;
@@ -1318,7 +1232,6 @@ function closeCalSettings(){
   if(overlay) overlay.remove();
 }
 
-/* ══ WEATHER ══ */
 const WMO_ICO={0:'☀️',1:'🌤',2:'⛅',3:'☁️',45:'🌫',48:'🌫',51:'🌦',53:'🌦',55:'🌧',61:'🌧',63:'🌧',65:'🌧',71:'🌨',73:'🌨',75:'❄️',80:'🌦',81:'🌧',82:'⛈',95:'⛈',96:'⛈',99:'⛈'};
 const WMO_TXT={0:'晴れ',1:'ほぼ晴れ',2:'薄曇り',3:'曇り',45:'霧',48:'霧',51:'小雨',53:'雨',55:'強雨',61:'小雨',63:'雨',65:'強雨',71:'小雪',73:'雪',75:'大雪',80:'にわか雨',81:'雨',82:'激しい雨',95:'雷雨',96:'雷雨',99:'激しい雷雨'};
 const LAT=35.4437,LON=139.6380;
@@ -1357,10 +1270,6 @@ async function loadWeather(){
   }catch(e){document.getElementById('weatherHourly').innerHTML=`<div style="padding:14px;color:var(--text-sub);font-size:12px">天気を取得できませんでした</div>`;}
 }
 
-/* ══ TRANSPORT ══ */
-/* ══════════════════════════════════════
-   YCAT⇒羽田空港 バス運行状況（ライブ）
-══════════════════════════════════════ */
 const YCAT_DIR_KEY='ycat_direction';
 let ycatDir = localStorage.getItem(YCAT_DIR_KEY) || 'ycat2haneda';
 let ycatRefreshTimer = null;
@@ -1394,7 +1303,6 @@ async function loadYcatStatus(){
 
     const routeLabel = ycatDir==='ycat2haneda' ? 'YCAT → 羽田空港' : '羽田空港 → YCAT';
 
-    // statusLabelが無い（深夜運休中など）場合
     if(!data.statusLabel){
       area.innerHTML=`
         <div class="ycat-card">
@@ -1408,7 +1316,6 @@ async function loadYcatStatus(){
       return;
     }
 
-    // ステータスに応じて色分け
     let statusClass='status-ok';
     let icon='✅';
     if(data.statusLabel.includes('注意')||data.statusLabel.includes('遅延')){statusClass='status-warn';icon='⚠️';}
@@ -1446,7 +1353,6 @@ function renderTransport(){
     <div class="transport-status status-check">確認する</div></a>`).join('');
 }
 
-/* ══ TRAIN DELAY ══ */
 const TRAIN_LINES_KEY='train_selected_v1';
 const TRAIN_LINES=[
   {id:'jrtokaido',  name:'JR東海道線',     keys:['東海道線']},
@@ -1493,7 +1399,6 @@ async function loadTrainDelay(){
     const r=await fetch('https://rti-giken.jp/fhc/api/train_tetsudo/delay.json');
     trainDelayCache=await r.json();
   }catch(e){
-    // 失敗してもキャッシュ（空=遅延なし）で表示
   }
   renderTrainBody(trainDelayCache);
   document.getElementById('trainRefresh').textContent=fmtTime(new Date());
@@ -1513,7 +1418,6 @@ function renderTrainBody(delayed){
   }).join('');
 }
 
-/* ══ YCAT BUS ══ */
 const YCAT_TBL={
   haneda:['05:50','06:05','06:20','06:35','06:50','07:05','07:20','07:35','07:50',
     '08:05','08:20','08:35','08:50','09:05','09:20','09:35','09:50',
@@ -1564,7 +1468,6 @@ function renderYcatBus(){
   +`<div class="bus-hint">所要 ${info.time}　※時刻は目安です。<a href="https://www.ycat.co.jp/route/" target="_blank" style="color:var(--accent)">公式サイト</a>で確認を</div>`;
 }
 
-/* ══ TRAFFIC TIME (Google Maps リアルタイム) ══ */
 const GMAPS_KEY_STORE='gmaps_api_key';
 const TRAFFIC_CFG=[
   {
@@ -1672,8 +1575,18 @@ function saveGMapsKeyAndLoad(){
   fetchTrafficData();
 }
 
-/* ══ RADAR ══ */
+const RADAR_SRC_KEY='radar_source';
+let radarSource = localStorage.getItem(RADAR_SRC_KEY) || 'jma';
 let radarMap=null,radarLayer=null;
+
+function setRadarSource(src){
+  radarSource=src;
+  localStorage.setItem(RADAR_SRC_KEY,src);
+  document.getElementById('radarSrcJma').classList.toggle('active',src==='jma');
+  document.getElementById('radarSrcRainviewer').classList.toggle('active',src==='rainviewer');
+  loadRadar();
+}
+
 async function loadRadar(){
   if(!radarMap){
     radarMap=L.map('radarMap',{center:[36.2,138.0],zoom:6,zoomControl:true});
@@ -1682,6 +1595,29 @@ async function loadRadar(){
     }).addTo(radarMap);
   }
   if(radarLayer){radarMap.removeLayer(radarLayer);radarLayer=null;}
+
+  if(radarSource==='jma'){
+    try{
+      const ts=await(await fetch('https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json')).json();
+      const vt=ts[0]?.validtime||ts[0]?.basetime||'';
+      let label='更新時刻不明';
+      if(vt.length>=13){
+        const utc=new Date(`${vt.slice(0,4)}-${vt.slice(4,6)}-${vt.slice(6,8)}T${vt.slice(9,11)}:${vt.slice(11,13)}:00Z`);
+        const jst=new Date(utc.getTime()+9*3600000);
+        label=`${String(jst.getUTCHours()).padStart(2,'0')}:${String(jst.getUTCMinutes()).padStart(2,'0')} JST`;
+      }
+      document.getElementById('radarTimePill').textContent=`気象庁ナウキャスト ${label}`;
+      radarLayer=L.tileLayer(
+        `https://www.jma.go.jp/bosai/jmatile/data/nowc/${vt}/none/{z}/{x}/{y}/surf/hrpns.png`,
+        {opacity:0.75,maxZoom:10,attribution:'気象庁 降水ナウキャスト'}
+      ).addTo(radarMap);
+    }catch(e){
+      document.getElementById('radarTimePill').textContent='取得失敗';
+      console.error('JMA radar error:',e);
+    }
+    return;
+  }
+
   try{
     const resp=await fetch('https://api.rainviewer.com/public/weather-maps.json');
     const data=await resp.json();
@@ -1698,18 +1634,10 @@ async function loadRadar(){
     ).addTo(radarMap);
   }catch(e){
     document.getElementById('radarTimePill').textContent='取得失敗';
-    console.error(e);
+    console.error('RainViewer error:',e);
   }
 }
 
-/* ══════════════════════════════════════
-   DRAG & DROP（列またぎ対応）
-   ⠿ ハンドルを掴んでドラッグ
-   - 同一列内：上下の順番を変える
-   - 別の列へ：列を移動
-   iOS Touch にも対応
-══════════════════════════════════════ */
-/* ══ CARD RESIZE ══ */
 function initCardResize(){
   const SIZES_KEY='card_sizes_v2';
   const saved=JSON.parse(localStorage.getItem(SIZES_KEY)||'{}');
@@ -1755,7 +1683,6 @@ let dragW=null;
 function initDragDrop(){
   const root=document.getElementById('columnsRoot');
 
-  /* ── Desktop drag ── */
   root.addEventListener('dragstart',e=>{
     const w=e.target.closest('.widget');
     if(!w)return;
@@ -1806,7 +1733,6 @@ function initDragDrop(){
     });
   }
 
-  /* ── iOS Touch drag ── */
   let tSrc=null,tClone=null,tStartX=0,tStartY=0,tTimer=null;
 
   root.addEventListener('touchstart',e=>{
@@ -1876,8 +1802,6 @@ function initDragDrop(){
   });
 }
 
-/* ── レイアウト保存/復元 ── */
-/* ── 列数管理 ── */
 let colCount=parseInt(localStorage.getItem('col_count')||'2');
 function applyColCount(n){
   if(n!==undefined) colCount=n;
@@ -1890,7 +1814,6 @@ function applyColCount(n){
   if(radarMap) setTimeout(()=>radarMap.invalidateSize(),100);
 }
 function setColCount(n){
-  // 列を減らす場合、はみ出したウィジェットを最後の列に移す
   for(let c=n;c<=2;c++){
     const fromCol=document.getElementById(`col-${c}`);
     const toCol=document.getElementById(`col-${n-1}`);
@@ -1935,35 +1858,32 @@ function restoreLayout(){
   }catch(e){}
 }
 
-/* ── FOOTER ── */
 function updateFooter(){
   document.getElementById('footer').textContent=
     `最終更新 ${fmtTime(new Date())} — タップで再読み込み ｜ ⠿ ドラッグで並び替え`;
 }
 
-/* ── INIT ── */
 let redirectAttempted = false;
 
 async function init(){
   const hadCodeParam = new URLSearchParams(location.search).has('code') || new URLSearchParams(location.search).has('error');
-  const redirectResult=await gcalHandleRedirect(); // true=成功 / false=エラー or 何もなし
+  const redirectResult=await gcalHandleRedirect();
   restoreLayout();
   applyColCount();
   initCardResize();
   initDragDrop();
 
-  // 保存済みの表示モードをタブUIに反映
   document.querySelectorAll('.cal-mode-tab').forEach(t=>{
     t.classList.toggle('active',t.dataset.mode===calMode);
   });
 
-  // YCAT方向トグルの初期状態反映
   initYcatToggleState();
 
-  // 交通リンク一覧は常時表示
+  document.getElementById('radarSrcJma')?.classList.toggle('active',radarSource==='jma');
+  document.getElementById('radarSrcRainviewer')?.classList.toggle('active',radarSource==='rainviewer');
+
   renderTransport();
 
-  // リダイレクト処理でエラー表示済み（code/errorパラメータがあったのに失敗した）場合はカレンダー再読込しない
   const skipCalendarReload = hadCodeParam && redirectResult===false;
 
   const calPromise = skipCalendarReload ? Promise.resolve() : loadCalendar();
