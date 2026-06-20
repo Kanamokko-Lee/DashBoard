@@ -307,6 +307,15 @@ body{
 .hour-icon{font-size:17px;}
 .hour-temp{font-size:12px;font-weight:500;}
 .hour-rain{font-size:10px;color:var(--accent2);min-height:13px;}
+.hour-precip-bar-track{
+  width:10px;height:32px;border-radius:4px;background:var(--surface2);
+  display:flex;align-items:flex-end;overflow:hidden;margin-top:2px;
+}
+.hour-precip-bar{
+  width:100%;background:linear-gradient(180deg,var(--accent2) 0%,var(--accent) 100%);
+  border-radius:4px 4px 0 0;min-height:2px;transition:height 0.3s;
+}
+.hour-precip-amt{font-size:9px;color:var(--text-dim);min-height:11px;}
 .weather-summary{margin-top:9px;display:flex;gap:8px;padding-top:9px;border-top:1px solid var(--border);flex-wrap:wrap;}
 .weather-stat{display:flex;flex-direction:column;gap:1px;flex:1;min-width:50px;}
 .weather-stat-label{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.07em;}
@@ -396,6 +405,9 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
   background:rgba(0,0,0,0.55);padding:2px 7px;border-radius:8px;
   backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
 }
+.radar-container.is-fullscreen .radar-time-pill{
+  top:48px; /* 全画面時は「✕ 閉じる」ボタンの下にずらす */
+}
 .radar-source-toggle{
   position:absolute;top:8px;left:8px;z-index:1000;
   display:flex;gap:4px;background:rgba(0,0,0,0.55);
@@ -419,6 +431,9 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
   display:flex;gap:3px;background:rgba(0,0,0,0.55);
   backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
   border-radius:8px;padding:3px;
+}
+.radar-container.is-fullscreen .base-map-toggle{
+  bottom:auto; top:46px; left:8px; right:auto; z-index:1003; /* ソース切替の下に配置 */
 }
 .base-map-btn{
   padding:4px 8px;border-radius:6px;border:none;background:transparent;
@@ -661,8 +676,8 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
               </div>
               <div class="base-map-toggle">
                 <button class="base-map-btn" data-basemap="dark" onclick="setBaseMap('dark')">ダーク</button>
-                <button class="base-map-btn active" data-basemap="road" onclick="setBaseMap('road')">道路地図</button>
-                <button class="base-map-btn" data-basemap="satellite" onclick="setBaseMap('satellite')">衛星写真</button>
+                <button class="base-map-btn" data-basemap="road" onclick="setBaseMap('road')">道路地図</button>
+                <button class="base-map-btn active" data-basemap="satellite" onclick="setBaseMap('satellite')">衛星写真</button>
               </div>
               <div class="radar-float-btns">
                 <a class="radar-float-btn" href="https://www.jma.go.jp/bosai/nowc/" target="_blank">🌐 気象庁</a>
@@ -1546,7 +1561,7 @@ async function loadWeather(){
   try{
     const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}`
       +`&current=temperature_2m,relative_humidity_2m,precipitation,weathercode,windspeed_10m,winddirection_10m`
-      +`&hourly=temperature_2m,precipitation_probability,weathercode`
+      +`&hourly=temperature_2m,precipitation_probability,precipitation,weathercode`
       +`&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max,sunrise,sunset`
       +`&timezone=Asia%2FTokyo&forecast_days=1`);
     const d=await r.json();
@@ -1572,14 +1587,26 @@ async function loadWeather(){
         </div>`;
     }
 
+    // 棒グラフの正規化基準（表示範囲内の最大降水量。最低でも2mmを基準にし、極端な比率を防ぐ）
+    const hourEnd = Math.min(curH+12,24);
+    const precipSlice = hr.precipitation.slice(curH, hourEnd);
+    const maxPrecip = Math.max(2, ...precipSlice);
+
     let slots='';
-    for(let i=curH;i<Math.min(curH+12,24);i++){
+    for(let i=curH;i<hourEnd;i++){
       const prp=hr.precipitation_probability[i];
+      const amt=hr.precipitation[i] ?? 0;
+      const barPct = Math.min(100, Math.round((amt / maxPrecip) * 100));
       slots+=`<div class="hour-slot">
         <div class="hour-label">${String(i).padStart(2,'0')}時</div>
         <div class="hour-icon">${WMO_ICO[hr.weathercode[i]]||'❓'}</div>
         <div class="hour-temp">${Math.round(hr.temperature_2m[i])}°</div>
-        <div class="hour-rain">${prp>0?`💧${prp}%`:''}</div></div>`;
+        <div class="hour-rain">${prp>0?`💧${prp}%`:''}</div>
+        <div class="hour-precip-bar-track">
+          <div class="hour-precip-bar" style="height:${barPct}%"></div>
+        </div>
+        <div class="hour-precip-amt">${amt>0?`${amt}mm`:''}</div>
+      </div>`;
     }
     document.getElementById('weatherHourly').innerHTML=slots;
     const maxT=Math.round(da.temperature_2m_max[0]),minT=Math.round(da.temperature_2m_min[0]);
@@ -1972,7 +1999,7 @@ document.addEventListener('keydown',e=>{
    ライト系（Positron）も選択肢に追加し、デフォルトもオーバーレイが見やすいものに調整。 */
 const BASE_MAP_KEY='radar_basemap';
 let baseMapLayer=null;
-let baseMapType = localStorage.getItem(BASE_MAP_KEY) || 'road';
+let baseMapType = localStorage.getItem(BASE_MAP_KEY) || 'satellite';
 
 const BASE_MAPS = {
   dark: {
@@ -2101,8 +2128,8 @@ async function loadRadar(){
       ]);
 
       function jstLabel(vtStr, prefix){
-        if(vtStr.length<13) return '時刻不明';
-        const utc=new Date(`${vtStr.slice(0,4)}-${vtStr.slice(4,6)}-${vtStr.slice(6,8)}T${vtStr.slice(9,11)}:${vtStr.slice(11,13)}:00Z`);
+        if(vtStr.length<14) return '時刻不明';
+        const utc=new Date(`${vtStr.slice(0,4)}-${vtStr.slice(4,6)}-${vtStr.slice(6,8)}T${vtStr.slice(8,10)}:${vtStr.slice(10,12)}:00Z`);
         const jst=new Date(utc.getTime()+9*3600000);
         return `${prefix}${String(jst.getUTCHours()).padStart(2,'0')}:${String(jst.getUTCMinutes()).padStart(2,'0')} JST`;
       }
