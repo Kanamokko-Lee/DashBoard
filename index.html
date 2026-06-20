@@ -130,7 +130,7 @@ body{
   50%{box-shadow:0 0 0 6px rgba(74,158,255,0);}
 }
 .ec-countdown{
-  font-size:16px;font-weight:700;color:var(--accent);text-align:right;
+  font-size:16px;font-weight:700;color:var(--accent);text-align:left;
   flex-shrink:0;line-height:1.1;white-space:nowrap;
 }
 .ec-countdown-unit{font-size:10px;font-weight:500;margin-left:1px;}
@@ -154,6 +154,7 @@ body{
 .ec-time-end{font-size:10px;color:var(--text-dim);font-variant-numeric:tabular-nums;}
 .ec-bar{width:3px;border-radius:2px;align-self:stretch;min-height:28px;flex-shrink:0;}
 .ec-info{flex:1;min-width:0;}
+.ec-info-right{text-align:right;}
 .ec-title{font-size:13.5px;font-weight:500;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .ec-loc{font-size:11px;color:var(--text-sub);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .ec-flight-icon{font-size:16px;flex-shrink:0;}
@@ -500,6 +501,7 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
 .train-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;white-space:nowrap;}
 .badge-ok{background:#26de8122;color:var(--good);}
 .badge-delay{background:#ff6b6b22;color:var(--danger);}
+.bus-list-scroll{max-height:230px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .bus-row{display:flex;align-items:center;padding:7px 15px;gap:8px;border-bottom:1px solid var(--border);}
 .bus-row:last-child{border-bottom:none;}
 .bus-time{font-size:16px;font-weight:500;font-variant-numeric:tabular-nums;min-width:50px;}
@@ -1135,13 +1137,13 @@ function renderEvents(events){
             : `<div class="ec-time">${ev.startTime}</div>${ev.endTime?`<div class="ec-time-end">${ev.endTime}</div>`:''}`}
         </div>
         <div class="ec-bar" style="background:${barColor}"></div>
+        ${countdown}
         ${icon}
-        <div class="ec-info">
+        <div class="ec-info ec-info-right">
           <div class="ec-title">${ev.title}</div>
           ${loc}
         </div>
         ${badge}
-        ${countdown}
       </div>`;
   }
 
@@ -1811,9 +1813,10 @@ function renderYcatBus(){
   const upcoming=schedule.map(t=>{
     const[h,m]=t.split(':').map(Number);
     return{time:t,diff:h*60+m-nowMin};
-  }).filter(x=>x.diff>=-2).slice(0,5);
+  }).filter(x=>x.diff>=-2); // 本日の残り全便を表示（5件に絞らない）
   if(!upcoming.length){el.innerHTML=`<div class="no-events">本日の運行は終了しました</div>`;return;}
-  el.innerHTML=upcoming.map((x,i)=>{
+  el.innerHTML=`<div class="bus-list-scroll">`
+  + upcoming.map((x,i)=>{
     const until=x.diff<=0?'出発済':x.diff<60?`あと${x.diff}分`:`あと${Math.floor(x.diff/60)}時間${x.diff%60}分`;
     return`<div class="bus-row">
       <div class="bus-time">${x.time}</div>
@@ -1822,7 +1825,8 @@ function renderYcatBus(){
       ${i===0?`<div class="bus-next-label ${isNarita?'is-narita':''}">次発</div>`:''}
     </div>`;
   }).join('')
-  +`<div class="bus-hint">所要 ${info.time}　※時刻は目安です。<a href="https://www.ycat.co.jp/route/" target="_blank" style="color:${accentColor}">公式サイト</a>で確認を</div>`;
+  + `</div>`
+  + `<div class="bus-hint">所要 ${info.time}　※時刻は目安です。<a href="https://www.ycat.co.jp/route/" target="_blank" style="color:${accentColor}">公式サイト</a>で確認を</div>`;
 }
 
 const GMAPS_KEY_STORE='gmaps_api_key';
@@ -1941,7 +1945,7 @@ function setRadarSource(src){
   localStorage.setItem(RADAR_SRC_KEY,src);
   document.getElementById('radarSrcJma').classList.toggle('active',src==='jma');
   document.getElementById('radarSrcRainviewer').classList.toggle('active',src==='rainviewer');
-  radarFrameIndex=0; // ソース切替時は最新フレームに戻す
+  radarIsFirstLoad=true; // ソース切替時は「現在」フレームに戻す
   loadRadar();
 }
 
@@ -2064,6 +2068,7 @@ const JmaEvenZoomTileLayer = L.TileLayer.extend({
 let radarFrames = [];      // [{label, value(基準/対象時刻文字列 or RainViewerパス)}]
 let radarFrameIndex = 0;   // 0=最新
 let radarNowFrameCount = 0; // 配列末尾から数えて何個先が「現在」フレームか（予報フレーム数と一致）
+let radarIsFirstLoad = true; // 初回ロード時のみデフォルトの「現在」位置にセットする
 
 function buildRadarSlider(){
   const wrap=document.getElementById('radarTimeSliderWrap');
@@ -2153,9 +2158,11 @@ async function loadRadar(){
 
       radarFrames = [...obsFrames, ...fcstFrames];
       radarNowFrameCount = fcstFrames.length; // 末尾から数えてfcstFrames.length個先が「現在」
-      if(radarFrameIndex===0 || radarFrameIndex>=radarFrames.length){
-        radarFrameIndex = fcstFrames.length>0 ? fcstFrames.length : 0; // 最新の実況を初期値に
+      if(radarIsFirstLoad){
+        radarFrameIndex = fcstFrames.length>0 ? fcstFrames.length : 0; // 初回のみ最新の実況を初期値に
+        radarIsFirstLoad = false;
       }
+      radarFrameIndex = Math.min(radarFrameIndex, radarFrames.length-1);
       renderRadarFrame();
       buildRadarSlider();
     }catch(e){
@@ -2195,9 +2202,11 @@ async function loadRadar(){
 
     radarFrames = [...pFrames, ...nFrames];
     radarNowFrameCount = nFrames.length; // 末尾から数えてnFrames.length個先が「現在」
-    if(radarFrameIndex===0 || radarFrameIndex>=radarFrames.length){
+    if(radarIsFirstLoad){
       radarFrameIndex = nFrames.length>0 ? nFrames.length : 0;
+      radarIsFirstLoad = false;
     }
+    radarFrameIndex = Math.min(radarFrameIndex, radarFrames.length-1);
     renderRadarFrame();
     buildRadarSlider();
   }catch(e){
