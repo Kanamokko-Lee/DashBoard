@@ -118,27 +118,22 @@ body{
 .day-split-line{
   margin:10px 15px; height:1px; background:var(--border);
 }
-.next-event-hero{
-  margin:0 15px 12px;padding:16px;border-radius:14px;
-  background:linear-gradient(135deg,var(--accent) 0%,#2e6fd9 100%);
-  color:#fff;position:relative;overflow:hidden;
+.event-card.is-next{
+  background:linear-gradient(135deg,var(--accent)22 0%,var(--accent)0d 100%);
+  border:1px solid var(--accent)55;
 }
-.next-event-hero.is-soon{
+.event-card.is-next.is-soon{
   animation:heroGlow 2s ease-in-out infinite;
 }
 @keyframes heroGlow{
-  0%,100%{box-shadow:0 0 0 0 rgba(74,158,255,0.4);}
-  50%{box-shadow:0 0 0 8px rgba(74,158,255,0);}
+  0%,100%{box-shadow:0 0 0 0 rgba(74,158,255,0.35);}
+  50%{box-shadow:0 0 0 6px rgba(74,158,255,0);}
 }
-.hero-label{font-size:10px;font-weight:700;letter-spacing:0.1em;opacity:0.85;text-transform:uppercase;}
-.hero-main-row{display:flex;align-items:center;gap:10px;margin-top:3px;flex-wrap:wrap;}
-.hero-countdown{font-size:24px;font-weight:200;letter-spacing:-1px;line-height:1.1;flex-shrink:0;}
-.hero-countdown .hero-unit{font-size:13px;font-weight:400;margin-left:2px;}
-.hero-title-block{min-width:0;}
-.hero-title{font-size:15px;font-weight:600;line-height:1.3;}
-.hero-time{font-size:11px;opacity:0.85;margin-top:2px;}
-.hero-meta{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;opacity:0.9;}
-.hero-icon{font-size:20px;position:absolute;top:14px;right:16px;opacity:0.5;}
+.ec-countdown{
+  font-size:16px;font-weight:700;color:var(--accent);text-align:right;
+  flex-shrink:0;line-height:1.1;white-space:nowrap;
+}
+.ec-countdown-unit{font-size:10px;font-weight:500;margin-left:1px;}
 .event-card{
   display:flex;align-items:center;gap:11px;
   margin:0 15px 7px;padding:10px 12px;border-radius:11px;
@@ -368,6 +363,10 @@ body{
 body.radar-fs-active{overflow:hidden;background:#0a0d12;}
 #radarMap{width:100%;height:100%;background:#0a0d12;}
 .leaflet-container{background:#0a0d12 !important;}
+.leaflet-tile-pane,.leaflet-tile-container,.leaflet-tile{background:#0a0d12;}
+.leaflet-zoom-box{background:transparent;}
+.leaflet-fade-anim .leaflet-tile{will-change:opacity;}
+.leaflet-pane,.leaflet-map-pane{background:transparent;}
 .leaflet-control-attribution{font-size:8px!important;background:rgba(0,0,0,0.5)!important;color:rgba(255,255,255,0.5)!important;}
 .leaflet-control-attribution a{color:rgba(255,255,255,0.4)!important;}
 .radar-float-btns{position:absolute;bottom:8px;left:8px;display:flex;gap:5px;z-index:1000;flex-wrap:wrap;}
@@ -397,12 +396,23 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
 }
 .radar-source-btn.active{background:var(--accent);color:#fff;}
 .radar-legend{
-  position:absolute;bottom:8px;right:8px;z-index:1000;
+  position:absolute;bottom:42px;right:8px;z-index:1000;
   background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
   border-radius:7px;padding:5px 7px;display:flex;flex-direction:column;gap:2px;
 }
 .legend-row{display:flex;align-items:center;gap:4px;font-size:10px;color:rgba(255,255,255,0.7);}
 .legend-swatch{width:14px;height:7px;border-radius:2px;}
+.base-map-toggle{
+  position:absolute;bottom:8px;right:8px;z-index:1000;
+  display:flex;gap:3px;background:rgba(0,0,0,0.55);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  border-radius:8px;padding:3px;
+}
+.base-map-btn{
+  padding:4px 8px;border-radius:6px;border:none;background:transparent;
+  color:rgba(255,255,255,0.6);font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;
+}
+.base-map-btn.active{background:var(--accent);color:#fff;}
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .footer{text-align:center;padding:5px 14px 14px;font-size:10px;color:var(--text-dim);cursor:pointer;line-height:1.6;}
@@ -490,6 +500,7 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
             <span class="weather-location-label" id="weatherLocationLabel">読込中…</span>
             <button class="cal-settings-btn" onclick="showWeatherLocationSetup()" title="場所を設定">⚙</button>
           </div>
+          <div class="loc-row" id="weatherFavRow"></div>
           <div class="weather-body">
             <div class="weather-now" id="weatherNow"></div>
             <div class="weather-hourly" id="weatherHourly">
@@ -604,6 +615,11 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
                 <div class="legend-row"><div class="legend-swatch" style="background:#ffff00"></div>強</div>
                 <div class="legend-row"><div class="legend-swatch" style="background:#ff8c00"></div>激</div>
                 <div class="legend-row"><div class="legend-swatch" style="background:#ff0000"></div>猛</div>
+              </div>
+              <div class="base-map-toggle">
+                <button class="base-map-btn active" data-basemap="dark" onclick="setBaseMap('dark')">ダーク</button>
+                <button class="base-map-btn" data-basemap="road" onclick="setBaseMap('road')">道路地図</button>
+                <button class="base-map-btn" data-basemap="satellite" onclick="setBaseMap('satellite')">衛星写真</button>
               </div>
               <div class="radar-float-btns">
                 <a class="radar-float-btn" href="https://www.jma.go.jp/bosai/nowc/" target="_blank">🌐 気象庁</a>
@@ -1025,22 +1041,40 @@ function renderEvents(events){
 
   let html='';
 
-  if(nextEvent){
-    const isFlight=nextEvent.isFlight;
-    const heroStyle = isFlight ? ` style="background:linear-gradient(135deg,${nextEvent.calColor} 0%,${nextEvent.calColor}cc 100%)"` : '';
-    html+=`
-      <div class="next-event-hero ${isFlight?'is-flight':''}" id="heroCard" data-target="${nextEvent._startDate.getTime()}"${heroStyle}>
-        <div class="hero-icon">${isFlight?'✈️':'⏰'}</div>
-        <div class="hero-label">次の予定まで</div>
-        <div class="hero-main-row">
-          <div class="hero-countdown" id="heroCountdown">--<span class="hero-unit">分</span></div>
-          <div class="hero-title-block">
-            <div class="hero-title">${nextEvent.title}</div>
-            <div class="hero-time">🕐 ${nextEvent.startTime}${nextEvent.endTime?`–${nextEvent.endTime}`:''}</div>
-          </div>
+  // 共通のイベントカードHTML生成（次の予定はハイライト＋カウントダウン付き）
+  function buildEventCardHtml(ev, isNext){
+    const isFlight=ev.isFlight;
+    const barColor=ev.calColor;
+    const badge=isFlight?`<span class="event-badge flight" style="background:${ev.calColor}">FLIGHT</span>`:'';
+    const icon=isFlight?`<span class="ec-flight-icon">✈️</span>`:'';
+    const loc=ev.loc?`<div class="ec-loc">📍 ${ev.loc}</div>`:'';
+    const dateLabel = ev.eventDate ? `${ev.eventDate.getMonth()+1}/${ev.eventDate.getDate()}` : '';
+    const countdown = isNext
+      ? `<div class="ec-countdown" id="heroCountdown">--<span class="ec-countdown-unit">分</span></div>`
+      : '';
+    const cardAttrs = isNext ? ` id="heroCard" data-target="${ev._startDate.getTime()}"` : '';
+
+    return `
+      <div class="event-card ${isNext?'is-next':''}"${cardAttrs}>
+        <div class="ec-date-col">${dateLabel}</div>
+        <div class="ec-time-col">
+          ${ev.isAllDay
+            ? `<div class="ec-allday-label">終日</div>`
+            : `<div class="ec-time">${ev.startTime}</div>${ev.endTime?`<div class="ec-time-end">${ev.endTime}</div>`:''}`}
         </div>
-        ${nextEvent.loc?`<div class="hero-meta"><span>📍 ${nextEvent.loc}</span></div>`:''}
+        <div class="ec-bar" style="background:${barColor}"></div>
+        ${icon}
+        <div class="ec-info">
+          <div class="ec-title">${ev.title}</div>
+          ${loc}
+        </div>
+        ${badge}
+        ${countdown}
       </div>`;
+  }
+
+  if(nextEvent){
+    html += buildEventCardHtml(nextEvent, true);
   }
 
   // 残りの予定（次の予定を除く）を日付ごとにグループ化
@@ -1065,29 +1099,7 @@ function renderEvents(events){
     if(gi>0) html+=`<div class="day-split-line"></div>`;
 
     evs.forEach(ev=>{
-      const isFlight=ev.isFlight;
-      const barColor=ev.calColor; // カレンダー設定色を常に使用
-      const badge=isFlight?`<span class="event-badge flight" style="background:${ev.calColor}">FLIGHT</span>`:'';
-      const icon=isFlight?`<span class="ec-flight-icon">✈️</span>`:'';
-      const loc=ev.loc?`<div class="ec-loc">📍 ${ev.loc}</div>`:'';
-      const dateLabel = ev.eventDate ? `${ev.eventDate.getMonth()+1}/${ev.eventDate.getDate()}` : '';
-
-      html+=`
-        <div class="event-card">
-          <div class="ec-date-col">${dateLabel}</div>
-          <div class="ec-time-col">
-            ${ev.isAllDay
-              ? `<div class="ec-allday-label">終日</div>`
-              : `<div class="ec-time">${ev.startTime}</div>${ev.endTime?`<div class="ec-time-end">${ev.endTime}</div>`:''}`}
-          </div>
-          <div class="ec-bar" style="background:${barColor}"></div>
-          ${icon}
-          <div class="ec-info">
-            <div class="ec-title">${ev.title}</div>
-            ${loc}
-          </div>
-          ${badge}
-        </div>`;
+      html += buildEventCardHtml(ev, false);
     });
   });
 
@@ -1112,11 +1124,11 @@ function updateHeroCountdown(){
     return;
   }
   if(diffMin<60){
-    cd.innerHTML=`${diffMin}<span class="hero-unit">分</span>`;
+    cd.innerHTML=`${diffMin}<span class="ec-countdown-unit">分</span>`;
     if(diffMin<=15) hero.classList.add('is-soon');
   }else{
     const h=Math.floor(diffMin/60), m=diffMin%60;
-    cd.innerHTML=`${h}<span class="hero-unit">時間</span>${m>0?` ${m}<span class="hero-unit">分</span>`:''}`;
+    cd.innerHTML=`${h}<span class="ec-countdown-unit">時間</span>${m>0?` ${m}<span class="ec-countdown-unit">分</span>`:''}`;
   }
 }
 
@@ -1335,6 +1347,8 @@ const WMO_TXT={0:'晴れ',1:'ほぼ晴れ',2:'薄曇り',3:'曇り',45:'霧',48:
 
 /* ── 天気予報の場所設定 ── */
 const WEATHER_LOC_KEY='weather_location';
+const WEATHER_FAVS_KEY='weather_favorites';
+
 function getWeatherLocation(){
   try{
     const saved=JSON.parse(localStorage.getItem(WEATHER_LOC_KEY)||'null');
@@ -1344,6 +1358,41 @@ function getWeatherLocation(){
 }
 function saveWeatherLocation(loc){
   localStorage.setItem(WEATHER_LOC_KEY, JSON.stringify(loc));
+}
+
+function getWeatherFavorites(){
+  try{ return JSON.parse(localStorage.getItem(WEATHER_FAVS_KEY)||'[]'); }catch(e){ return []; }
+}
+function saveWeatherFavorites(list){
+  localStorage.setItem(WEATHER_FAVS_KEY, JSON.stringify(list));
+}
+function isWeatherFavorite(lat,lon){
+  return getWeatherFavorites().some(f=>Math.abs(f.lat-lat)<0.0001 && Math.abs(f.lon-lon)<0.0001);
+}
+function addWeatherFavorite(lat,lon,name){
+  const favs=getWeatherFavorites();
+  if(isWeatherFavorite(lat,lon)) return;
+  favs.push({lat,lon,name});
+  saveWeatherFavorites(favs);
+  renderWeatherFavChips();
+}
+function removeWeatherFavorite(lat,lon){
+  const favs=getWeatherFavorites().filter(f=>!(Math.abs(f.lat-lat)<0.0001 && Math.abs(f.lon-lon)<0.0001));
+  saveWeatherFavorites(favs);
+  renderWeatherFavChips();
+}
+
+function renderWeatherFavChips(){
+  const row=document.getElementById('weatherFavRow');
+  if(!row) return;
+  const favs=getWeatherFavorites();
+  const cur=getWeatherLocation();
+  if(favs.length===0){ row.innerHTML=''; row.style.display='none'; return; }
+  row.style.display='';
+  row.innerHTML=favs.map(f=>{
+    const isActive = Math.abs(f.lat-cur.lat)<0.0001 && Math.abs(f.lon-cur.lon)<0.0001;
+    return `<button class="loc-btn ${isActive?'active':''}" onclick="selectWeatherLocation(${f.lat},${f.lon},'${(f.name||'').replace(/'/g,"\\'")}')">${f.name}</button>`;
+  }).join('');
 }
 
 function showWeatherLocationSetup(){
@@ -1366,10 +1415,25 @@ function showWeatherLocationSetup(){
           <button class="gcal-save-btn" onclick="searchWeatherLocation()">検索</button>
         </div>
         <div id="weatherLocResults" style="margin-top:10px;"></div>
+        <div id="weatherFavManageList" style="margin-top:14px;"></div>
       </div>
     </div>`;
   document.body.appendChild(overlay);
   overlay.addEventListener('click',e=>{ if(e.target===overlay) closeWeatherLocationSetup(); });
+  renderWeatherFavManageList();
+}
+
+function renderWeatherFavManageList(){
+  const el=document.getElementById('weatherFavManageList');
+  if(!el) return;
+  const favs=getWeatherFavorites();
+  if(!favs.length){ el.innerHTML=''; return; }
+  el.innerHTML = `<p style="font-size:11px;color:var(--text-dim);margin-bottom:6px;">登録済みのお気に入り</p>` +
+    favs.map(f=>`
+      <div class="cal-list-row" style="cursor:default">
+        <div class="cal-list-name">${f.name}</div>
+        <button class="cal-modal-close" onclick="removeWeatherFavorite(${f.lat},${f.lon});renderWeatherFavManageList();" title="削除">✕</button>
+      </div>`).join('');
 }
 
 function closeWeatherLocationSetup(){
@@ -1392,8 +1456,10 @@ async function searchWeatherLocation(){
     }
     resultsEl.innerHTML=results.map(r=>{
       const label=[r.name, r.admin1, r.country].filter(Boolean).join(' / ');
-      return `<div class="cal-list-row" onclick='selectWeatherLocation(${r.latitude},${r.longitude},"${(r.name||'').replace(/"/g,'')}")'>
-        <div class="cal-list-name">${label}</div>
+      const fav=isWeatherFavorite(r.latitude,r.longitude);
+      return `<div class="cal-list-row">
+        <div class="cal-list-name" onclick='selectWeatherLocation(${r.latitude},${r.longitude},"${(r.name||'').replace(/"/g,'')}")' style="cursor:pointer">${label}</div>
+        <button class="cal-modal-close" style="${fav?'opacity:0.3':''}" onclick='addWeatherFavorite(${r.latitude},${r.longitude},"${(r.name||'').replace(/"/g,'')}");this.style.opacity=0.3;' title="お気に入りに追加">⭐</button>
       </div>`;
     }).join('');
   }catch(e){
@@ -1404,6 +1470,7 @@ async function searchWeatherLocation(){
 function selectWeatherLocation(lat,lon,name){
   saveWeatherLocation({lat,lon,name});
   closeWeatherLocationSetup();
+  renderWeatherFavChips();
   loadWeather();
 }
 
@@ -1417,6 +1484,7 @@ function degToWindDir(deg){
 async function loadWeather(){
   const loc=getWeatherLocation();
   document.getElementById('weatherLocationLabel').textContent=loc.name||'地点未設定';
+  renderWeatherFavChips();
 
   try{
     const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}`
@@ -1838,12 +1906,45 @@ document.addEventListener('keydown',e=>{
   }
 });
 
+/* ── ベースマップ（背景地図）の切替 ── */
+const BASE_MAP_KEY='radar_basemap';
+let baseMapLayer=null;
+let baseMapType = localStorage.getItem(BASE_MAP_KEY) || 'dark';
+
+const BASE_MAPS = {
+  dark: {
+    url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    options:{attribution:'&copy; CARTO &copy; OSM',subdomains:'abcd',maxZoom:18,maxNativeZoom:12},
+  },
+  road: {
+    url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    options:{attribution:'&copy; CARTO &copy; OSM',subdomains:'abcd',maxZoom:18,maxNativeZoom:12},
+  },
+  satellite: {
+    url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    options:{attribution:'&copy; Esri, Maxar, Earthstar Geographics',maxZoom:18,maxNativeZoom:17},
+  },
+};
+
+function setBaseMap(type){
+  baseMapType=type;
+  localStorage.setItem(BASE_MAP_KEY,type);
+  document.querySelectorAll('.base-map-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.basemap===type);
+  });
+  if(radarMap && baseMapLayer){
+    radarMap.removeLayer(baseMapLayer);
+    const cfg=BASE_MAPS[type] || BASE_MAPS.dark;
+    baseMapLayer=L.tileLayer(cfg.url,cfg.options).addTo(radarMap);
+    baseMapLayer.bringToBack();
+  }
+}
+
 async function loadRadar(){
   if(!radarMap){
     radarMap=L.map('radarMap',{center:[36.2,138.0],zoom:6,zoomControl:true,maxZoom:18});
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-      attribution:'&copy; CARTO &copy; OSM',subdomains:'abcd',maxZoom:18,maxNativeZoom:12
-    }).addTo(radarMap);
+    const cfg=BASE_MAPS[baseMapType] || BASE_MAPS.dark;
+    baseMapLayer=L.tileLayer(cfg.url,cfg.options).addTo(radarMap);
   }
   if(radarLayer){radarMap.removeLayer(radarLayer);radarLayer=null;}
 
@@ -2146,6 +2247,9 @@ async function init(){
 
   document.getElementById('radarSrcJma')?.classList.toggle('active',radarSource==='jma');
   document.getElementById('radarSrcRainviewer')?.classList.toggle('active',radarSource==='rainviewer');
+  document.querySelectorAll('.base-map-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.basemap===baseMapType);
+  });
 
   const skipCalendarReload = hadCodeParam && redirectResult===false;
 
