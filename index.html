@@ -115,6 +115,13 @@ body{
 }
 .allday-bar .ab-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
 .allday-bar .ab-title{font-size:12px;font-weight:500;color:var(--text-sub);}
+.day-divider{
+  margin:14px 15px 8px; padding-bottom:5px;
+  border-bottom:1px solid var(--border);
+  font-size:11px; font-weight:700; color:var(--text-sub);
+  letter-spacing:0.04em;
+}
+.day-divider:first-of-type{margin-top:4px;}
 .next-event-hero{
   margin:0 15px 12px;padding:16px;border-radius:14px;
   background:linear-gradient(135deg,var(--accent) 0%,#2e6fd9 100%);
@@ -323,6 +330,19 @@ body{
 .ycat-toggle-btn.active{background:var(--accent);color:#fff;}
 .radar-body{position:relative;}
 .radar-container{position:relative;width:100%;height:300px;}
+.radar-container.is-fullscreen{
+  position:fixed; inset:0; width:100vw; height:100vh;
+  z-index:5000; border-radius:0;
+  padding-top:env(safe-area-inset-top,0);
+}
+.radar-exit-fullscreen-btn{
+  position:absolute; top:8px; right:8px; z-index:1001;
+  padding:6px 12px; border-radius:16px; border:1px solid rgba(255,255,255,0.15);
+  background:rgba(13,15,20,0.8); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  color:#fff; font-size:12px; font-weight:600; cursor:pointer;
+}
+.radar-exit-fullscreen-btn:active{background:rgba(74,158,255,0.4);}
+body.radar-fs-active{overflow:hidden;}
 #radarMap{width:100%;height:100%;}
 .leaflet-control-attribution{font-size:8px!important;background:rgba(0,0,0,0.5)!important;color:rgba(255,255,255,0.5)!important;}
 .leaflet-control-attribution a{color:rgba(255,255,255,0.4)!important;}
@@ -536,15 +556,17 @@ body{
             <span class="drag-handle">⠿</span>
             <span class="card-icon">🛰</span>
             <span class="card-title">雨雲レーダー</span>
+            <button class="cal-settings-btn" id="radarFullscreenBtn" onclick="toggleRadarFullscreen()" title="全画面表示">⛶</button>
           </div>
-          <div class="radar-body">
-            <div class="radar-container">
+          <div class="radar-body" id="radarBody">
+            <div class="radar-container" id="radarContainer">
               <div id="radarMap"></div>
               <div class="radar-source-toggle">
                 <button class="radar-source-btn active" id="radarSrcJma" onclick="setRadarSource('jma')">気象庁</button>
                 <button class="radar-source-btn" id="radarSrcRainviewer" onclick="setRadarSource('rainviewer')">RainViewer</button>
               </div>
               <div class="radar-time-pill" id="radarTimePill">読込中…</div>
+              <button class="radar-exit-fullscreen-btn" id="radarExitFsBtn" onclick="toggleRadarFullscreen()" style="display:none">✕ 閉じる</button>
               <div class="radar-legend">
                 <div class="legend-row"><div class="legend-swatch" style="background:#00c8ff"></div>弱</div>
                 <div class="legend-row"><div class="legend-swatch" style="background:#00e600"></div>並</div>
@@ -875,7 +897,7 @@ function getRangeForMode(){
   const d=new Date(calAnchorDate);
   if(calMode==='day'){
     const start=new Date(d.getFullYear(),d.getMonth(),d.getDate(),0,0,0);
-    const end=new Date(d.getFullYear(),d.getMonth(),d.getDate(),23,59,59);
+    const end=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1,23,59,59); // 2日間表示
     return {start,end};
   }
   if(calMode==='week'){
@@ -895,7 +917,8 @@ function updatePeriodLabel(){
   const d=calAnchorDate;
   const el=document.getElementById('calPeriodLabel');
   if(calMode==='day'){
-    el.textContent=`${d.getMonth()+1}/${d.getDate()}（${WDAYS[d.getDay()]}）`;
+    const d2=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1);
+    el.textContent=`${d.getMonth()+1}/${d.getDate()}（${WDAYS[d.getDay()]}）– ${d2.getMonth()+1}/${d2.getDate()}（${WDAYS[d2.getDay()]}）`;
   } else if(calMode==='week'){
     const dow=d.getDay();
     const s=new Date(d.getFullYear(),d.getMonth(),d.getDate()-dow);
@@ -918,20 +941,16 @@ function renderEvents(events){
   }
 
   const now=new Date();
-  const isViewingToday =
-    calAnchorDate.getFullYear()===now.getFullYear() &&
-    calAnchorDate.getMonth()===now.getMonth() &&
-    calAnchorDate.getDate()===now.getDate();
+  const isSameDay=(a,b)=>a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
 
   const allDayEvents = events.filter(ev=>ev.isAllDay);
   const timedEvents   = events.filter(ev=>!ev.isAllDay);
 
-  const upcoming = isViewingToday
-    ? timedEvents
-        .map(ev=>({...ev, _startDate: parseTimeToDate(ev.startTime, now)}))
-        .filter(ev=>ev._startDate && ev._startDate.getTime() > now.getTime())
-        .sort((a,b)=>a._startDate-b._startDate)
-    : [];
+  // 「次の予定」候補：表示範囲内で、開始時刻が今より後の最初のもの
+  const upcoming = timedEvents
+    .map(ev=>({...ev, _startDate: ev.eventDate || parseTimeToDate(ev.startTime, now)}))
+    .filter(ev=>ev._startDate && ev._startDate.getTime() > now.getTime())
+    .sort((a,b)=>a._startDate-b._startDate);
 
   const nextEvent = upcoming[0] || null;
 
@@ -960,30 +979,51 @@ function renderEvents(events){
       </div>`;
   }
 
+  // 残りの予定（次の予定を除く）を日付ごとにグループ化して見出し付きで表示
   const restEvents = nextEvent
-    ? timedEvents.filter(ev=>ev!==nextEvent && (!ev._startDate||true)).filter(ev=>ev.startTime!==nextEvent.startTime||ev.title!==nextEvent.title)
+    ? timedEvents.filter(ev=>!(ev.startTime===nextEvent.startTime && ev.title===nextEvent.title && isSameDay(ev.eventDate,nextEvent.eventDate)))
     : timedEvents;
 
+  // 日付（YYYY-MM-DD）でグルーピング
+  const groups = new Map();
   restEvents.forEach(ev=>{
-    const isFlight=ev.isFlight;
-    const barColor=isFlight?'#ff6b2b':ev.calColor;
-    const badge=isFlight?`<span class="event-badge flight">FLIGHT</span>`:'';
-    const icon=isFlight?`<span class="ec-flight-icon">✈️</span>`:'';
-    const loc=ev.loc?`<div class="ec-loc">📍 ${ev.loc}</div>`:'';
-    html+=`
-      <div class="event-card">
-        <div class="ec-time-col">
-          <div class="ec-time">${ev.startTime}</div>
-          ${ev.endTime?`<div class="ec-time-end">${ev.endTime}</div>`:''}
-        </div>
-        <div class="ec-bar" style="background:${barColor}"></div>
-        ${icon}
-        <div class="ec-info">
-          <div class="ec-title">${ev.title}</div>
-          ${loc}
-        </div>
-        ${badge}
-      </div>`;
+    const dKey = ev.eventDate
+      ? `${ev.eventDate.getFullYear()}-${ev.eventDate.getMonth()}-${ev.eventDate.getDate()}`
+      : 'unknown';
+    if(!groups.has(dKey)) groups.set(dKey, []);
+    groups.get(dKey).push(ev);
+  });
+
+  // 表示範囲が2日間にわたる場合は日付見出しを表示
+  const multiDay = groups.size > 1;
+
+  groups.forEach((evs, dKey)=>{
+    if(multiDay && evs[0]?.eventDate){
+      const dt=evs[0].eventDate;
+      const isToday=isSameDay(dt,now);
+      html+=`<div class="day-divider">${isToday?'今日':'翌日'} ${dt.getMonth()+1}/${dt.getDate()}（${WDAYS[dt.getDay()]}）</div>`;
+    }
+    evs.forEach(ev=>{
+      const isFlight=ev.isFlight;
+      const barColor=isFlight?'#ff6b2b':ev.calColor;
+      const badge=isFlight?`<span class="event-badge flight">FLIGHT</span>`:'';
+      const icon=isFlight?`<span class="ec-flight-icon">✈️</span>`:'';
+      const loc=ev.loc?`<div class="ec-loc">📍 ${ev.loc}</div>`:'';
+      html+=`
+        <div class="event-card">
+          <div class="ec-time-col">
+            <div class="ec-time">${ev.startTime}</div>
+            ${ev.endTime?`<div class="ec-time-end">${ev.endTime}</div>`:''}
+          </div>
+          <div class="ec-bar" style="background:${barColor}"></div>
+          ${icon}
+          <div class="ec-info">
+            <div class="ec-title">${ev.title}</div>
+            ${loc}
+          </div>
+          ${badge}
+        </div>`;
+    });
   });
 
   el.innerHTML=html;
@@ -1130,6 +1170,7 @@ async function loadCalendar(){
         startTime:ev.isAllDay?'終日':fmtTime(ev.start),
         endTime:ev.isAllDay?'':fmtTime(ev.end),
         calColor:ev.calColor,
+        eventDate:ev.start, // 日付グルーピング用
       }));
       renderEvents(dayEvents);
     } else if(calMode==='week'){
@@ -1291,6 +1332,20 @@ async function loadYcatStatus(){
     }
 
     const routeLabel = ycatDir==='ycat2haneda' ? 'YCAT → 羽田空港' : '羽田空港 → YCAT';
+
+    // 羽田→YCAT方向には、そもそもYCAT公式サイトに運行状況表示の仕組みがない
+    if(ycatDir==='haneda2ycat'){
+      area.innerHTML=`
+        <div class="ycat-card">
+          <div class="ycat-icon">🚌</div>
+          <div class="ycat-info">
+            <div class="ycat-route">${routeLabel}</div>
+            <div class="ycat-status-label">運行状況の提供なし</div>
+            <div class="ycat-detail">この方向はYCAT公式サイトに運行状況表示がありません。下の時刻表をご確認ください</div>
+          </div>
+        </div>`;
+      return;
+    }
 
     if(!data.statusLabel){
       area.innerHTML=`
@@ -1564,6 +1619,24 @@ function setRadarSource(src){
   document.getElementById('radarSrcRainviewer').classList.toggle('active',src==='rainviewer');
   loadRadar();
 }
+
+/* ── 雨雲レーダー 全画面表示 ── */
+function toggleRadarFullscreen(){
+  const container=document.getElementById('radarContainer');
+  const exitBtn=document.getElementById('radarExitFsBtn');
+  const isFs=container.classList.toggle('is-fullscreen');
+  document.body.classList.toggle('radar-fs-active',isFs);
+  exitBtn.style.display = isFs ? '' : 'none';
+  if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
+}
+
+/* ESCキーで全画面を閉じる */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    const container=document.getElementById('radarContainer');
+    if(container && container.classList.contains('is-fullscreen')) toggleRadarFullscreen();
+  }
+});
 
 async function loadRadar(){
   if(!radarMap){
