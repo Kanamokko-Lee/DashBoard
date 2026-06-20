@@ -131,10 +131,12 @@ body{
   50%{box-shadow:0 0 0 8px rgba(74,158,255,0);}
 }
 .hero-label{font-size:10px;font-weight:700;letter-spacing:0.1em;opacity:0.85;text-transform:uppercase;}
-.hero-main-row{display:flex;align-items:baseline;gap:10px;margin-top:3px;flex-wrap:wrap;}
+.hero-main-row{display:flex;align-items:center;gap:10px;margin-top:3px;flex-wrap:wrap;}
 .hero-countdown{font-size:24px;font-weight:200;letter-spacing:-1px;line-height:1.1;flex-shrink:0;}
 .hero-countdown .hero-unit{font-size:13px;font-weight:400;margin-left:2px;}
-.hero-title{font-size:15px;font-weight:600;line-height:1.3;min-width:0;}
+.hero-title-block{min-width:0;}
+.hero-title{font-size:15px;font-weight:600;line-height:1.3;}
+.hero-time{font-size:11px;opacity:0.85;margin-top:2px;}
 .hero-meta{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;opacity:0.9;}
 .hero-icon{font-size:20px;position:absolute;top:14px;right:16px;opacity:0.5;}
 .event-card{
@@ -287,7 +289,22 @@ body{
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4;
 }
 .month-event-more{font-size:8px;color:var(--text-dim);padding-left:4px;}
+.weather-location-label{
+  margin-left:auto;font-size:10px;color:var(--text-dim);font-weight:500;
+  max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
 .weather-body{padding:11px 15px;}
+.weather-now{
+  display:flex;align-items:center;gap:14px;padding-bottom:11px;margin-bottom:9px;
+  border-bottom:1px solid var(--border);
+}
+.weather-now-icon{font-size:36px;flex-shrink:0;}
+.weather-now-temp{font-size:32px;font-weight:200;line-height:1;flex-shrink:0;}
+.weather-now-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;flex:1;min-width:0;
+}
+.weather-now-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-sub);}
+.weather-now-item b{color:var(--text);font-weight:600;}
 .weather-hourly{display:flex;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
 .weather-hourly::-webkit-scrollbar{display:none;}
 .hour-slot{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:48px;padding:0 2px;}
@@ -470,8 +487,11 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
             <span class="drag-handle">⠿</span>
             <span class="card-icon">🌤</span>
             <span class="card-title">今日の天気予報</span>
+            <span class="weather-location-label" id="weatherLocationLabel">読込中…</span>
+            <button class="cal-settings-btn" onclick="showWeatherLocationSetup()" title="場所を設定">⚙</button>
           </div>
           <div class="weather-body">
+            <div class="weather-now" id="weatherNow"></div>
             <div class="weather-hourly" id="weatherHourly">
               <div class="loading-text"><span class="spinner"></span> 取得中…</div>
             </div>
@@ -1014,12 +1034,12 @@ function renderEvents(events){
         <div class="hero-label">次の予定まで</div>
         <div class="hero-main-row">
           <div class="hero-countdown" id="heroCountdown">--<span class="hero-unit">分</span></div>
-          <div class="hero-title">${nextEvent.title}</div>
+          <div class="hero-title-block">
+            <div class="hero-title">${nextEvent.title}</div>
+            <div class="hero-time">🕐 ${nextEvent.startTime}${nextEvent.endTime?`–${nextEvent.endTime}`:''}</div>
+          </div>
         </div>
-        <div class="hero-meta">
-          <span>🕐 ${nextEvent.startTime}${nextEvent.endTime?`–${nextEvent.endTime}`:''}</span>
-          ${nextEvent.loc?`<span>📍 ${nextEvent.loc}</span>`:''}
-        </div>
+        ${nextEvent.loc?`<div class="hero-meta"><span>📍 ${nextEvent.loc}</span></div>`:''}
       </div>`;
   }
 
@@ -1312,19 +1332,121 @@ function closeCalSettings(){
 
 const WMO_ICO={0:'☀️',1:'🌤',2:'⛅',3:'☁️',45:'🌫',48:'🌫',51:'🌦',53:'🌦',55:'🌧',61:'🌧',63:'🌧',65:'🌧',71:'🌨',73:'🌨',75:'❄️',80:'🌦',81:'🌧',82:'⛈',95:'⛈',96:'⛈',99:'⛈'};
 const WMO_TXT={0:'晴れ',1:'ほぼ晴れ',2:'薄曇り',3:'曇り',45:'霧',48:'霧',51:'小雨',53:'雨',55:'強雨',61:'小雨',63:'雨',65:'強雨',71:'小雪',73:'雪',75:'大雪',80:'にわか雨',81:'雨',82:'激しい雨',95:'雷雨',96:'雷雨',99:'激しい雷雨'};
-const LAT=35.4437,LON=139.6380;
+
+/* ── 天気予報の場所設定 ── */
+const WEATHER_LOC_KEY='weather_location';
+function getWeatherLocation(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(WEATHER_LOC_KEY)||'null');
+    if(saved && saved.lat!==undefined) return saved;
+  }catch(e){}
+  return { lat:35.4437, lon:139.6380, name:'横浜駅' }; // デフォルト
+}
+function saveWeatherLocation(loc){
+  localStorage.setItem(WEATHER_LOC_KEY, JSON.stringify(loc));
+}
+
+function showWeatherLocationSetup(){
+  const cur=getWeatherLocation();
+  const overlay=document.createElement('div');
+  overlay.className='cal-modal-overlay';
+  overlay.id='weatherModalOverlay';
+  overlay.innerHTML=`
+    <div class="cal-modal">
+      <div class="cal-modal-header">
+        <span class="cal-modal-title">天気予報の場所を設定</span>
+        <button class="cal-modal-close" onclick="closeWeatherLocationSetup()">✕</button>
+      </div>
+      <div class="cal-modal-body" style="padding:14px 16px;">
+        <p style="font-size:12px;color:var(--text-sub);margin-bottom:10px;line-height:1.5;">
+          地名・駅名・空港名などを入力してください（例：横浜駅、羽田空港、逗子）
+        </p>
+        <div class="gcal-input-row">
+          <input class="gcal-input" id="weatherLocInput" type="text" placeholder="地名を入力" value="${cur.name||''}">
+          <button class="gcal-save-btn" onclick="searchWeatherLocation()">検索</button>
+        </div>
+        <div id="weatherLocResults" style="margin-top:10px;"></div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{ if(e.target===overlay) closeWeatherLocationSetup(); });
+}
+
+function closeWeatherLocationSetup(){
+  const overlay=document.getElementById('weatherModalOverlay');
+  if(overlay) overlay.remove();
+}
+
+async function searchWeatherLocation(){
+  const q=document.getElementById('weatherLocInput')?.value?.trim();
+  const resultsEl=document.getElementById('weatherLocResults');
+  if(!q){ resultsEl.innerHTML=''; return; }
+  resultsEl.innerHTML=`<div class="loading-text"><span class="spinner"></span> 検索中…</div>`;
+  try{
+    const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=ja&format=json`);
+    const data=await r.json();
+    const results=data.results||[];
+    if(!results.length){
+      resultsEl.innerHTML=`<div class="no-events" style="font-size:12px">見つかりませんでした</div>`;
+      return;
+    }
+    resultsEl.innerHTML=results.map(r=>{
+      const label=[r.name, r.admin1, r.country].filter(Boolean).join(' / ');
+      return `<div class="cal-list-row" onclick='selectWeatherLocation(${r.latitude},${r.longitude},"${(r.name||'').replace(/"/g,'')}")'>
+        <div class="cal-list-name">${label}</div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    resultsEl.innerHTML=`<div class="no-events" style="font-size:12px">検索エラー</div>`;
+  }
+}
+
+function selectWeatherLocation(lat,lon,name){
+  saveWeatherLocation({lat,lon,name});
+  closeWeatherLocationSetup();
+  loadWeather();
+}
+
+const WIND_DIRS=['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西'];
+function degToWindDir(deg){
+  if(deg===undefined||deg===null) return '';
+  const idx=Math.round(deg/22.5)%16;
+  return WIND_DIRS[idx];
+}
 
 async function loadWeather(){
+  const loc=getWeatherLocation();
+  document.getElementById('weatherLocationLabel').textContent=loc.name||'地点未設定';
+
   try{
-    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}`
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}`
+      +`&current=temperature_2m,relative_humidity_2m,precipitation,weathercode,windspeed_10m,winddirection_10m`
       +`&hourly=temperature_2m,precipitation_probability,weathercode`
       +`&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max,sunrise,sunset`
       +`&timezone=Asia%2FTokyo&forecast_days=1`);
     const d=await r.json();
-    const hr=d.hourly,da=d.daily,curH=new Date().getHours();
-    const ct=Math.round(hr.temperature_2m[curH]),cw=hr.weathercode[curH];
+    const hr=d.hourly,da=d.daily,cur=d.current,curH=new Date().getHours();
+
+    // ヘッダー（カード右上の表示用、現在気温）
+    const ct=cur?Math.round(cur.temperature_2m):Math.round(hr.temperature_2m[curH]);
+    const cw=cur?cur.weathercode:hr.weathercode[curH];
     document.getElementById('headerTemp').textContent=`${ct}°`;
     document.getElementById('headerDesc').textContent=`${WMO_ICO[cw]||''} ${WMO_TXT[cw]||''}`;
+
+    // 現在の天気詳細ブロック
+    if(cur){
+      const windDir=degToWindDir(cur.winddirection_10m);
+      document.getElementById('weatherNow').innerHTML=`
+        <div class="weather-now-icon">${WMO_ICO[cw]||'❓'}</div>
+        <div class="weather-now-temp">${Math.round(cur.temperature_2m)}°</div>
+        <div class="weather-now-grid">
+          <div class="weather-now-item">💧 降水量 <b>${cur.precipitation??0}mm</b></div>
+          <div class="weather-now-item">💨 風 <b>${windDir} ${Math.round(cur.windspeed_10m)}km/h</b></div>
+          <div class="weather-now-item">😌 湿度 <b>${cur.relative_humidity_2m??'-'}%</b></div>
+          <div class="weather-now-item">☁️ <b>${WMO_TXT[cw]||''}</b></div>
+        </div>`;
+    }
+
     let slots='';
     for(let i=curH;i<Math.min(curH+12,24);i++){
       const prp=hr.precipitation_probability[i];
@@ -1670,20 +1792,41 @@ function setRadarSource(src){
   loadRadar();
 }
 
-/* ── 雨雲レーダー 全画面表示 ── */
+/* ── 雨雲レーダー 全画面表示 ──
+   .card に overflow:hidden があるため、position:fixed の子要素でも
+   祖先でクリップされてしまう。全画面時はDOM上でbody直下に移動させて回避する。 */
+let radarFsPlaceholder=null;
+
 function toggleRadarFullscreen(){
   const container=document.getElementById('radarContainer');
   const exitBtn=document.getElementById('radarExitFsBtn');
-  const isFs=container.classList.toggle('is-fullscreen');
-  document.body.classList.toggle('radar-fs-active',isFs);
-  exitBtn.style.display = isFs ? '' : 'none';
+  const isFs=container.classList.contains('is-fullscreen');
+
+  if(!isFs){
+    // 全画面化：プレースホルダーを元の位置に残し、コンテナをbody直下へ移動
+    radarFsPlaceholder=document.createComment('radar-placeholder');
+    container.parentNode.insertBefore(radarFsPlaceholder, container);
+    document.body.appendChild(container);
+    container.classList.add('is-fullscreen');
+    document.body.classList.add('radar-fs-active');
+    exitBtn.style.display='';
+  } else {
+    // 解除：元の位置に戻す
+    container.classList.remove('is-fullscreen');
+    document.body.classList.remove('radar-fs-active');
+    exitBtn.style.display='none';
+    if(radarFsPlaceholder && radarFsPlaceholder.parentNode){
+      radarFsPlaceholder.parentNode.insertBefore(container, radarFsPlaceholder);
+      radarFsPlaceholder.remove();
+      radarFsPlaceholder=null;
+    }
+  }
 
   if(radarMap){
     const center=radarMap.getCenter();
     const zoom=radarMap.getZoom();
-    // レイアウト確定後に複数回リサイズして確実に追従させる
-    setTimeout(()=>{ radarMap.invalidateSize(); radarMap.setView(center, zoom, {animate:false}); }, 80);
-    setTimeout(()=>{ radarMap.invalidateSize(); radarMap.setView(center, zoom, {animate:false}); }, 300);
+    setTimeout(()=>{ radarMap.invalidateSize(); radarMap.setView(center, zoom, {animate:false}); }, 50);
+    setTimeout(()=>{ radarMap.invalidateSize(); radarMap.setView(center, zoom, {animate:false}); }, 250);
   }
 }
 
