@@ -115,13 +115,9 @@ body{
 }
 .allday-bar .ab-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
 .allday-bar .ab-title{font-size:12px;font-weight:500;color:var(--text-sub);}
-.day-divider{
-  margin:14px 15px 8px; padding-bottom:5px;
-  border-bottom:1px solid var(--border);
-  font-size:11px; font-weight:700; color:var(--text-sub);
-  letter-spacing:0.04em;
+.day-split-line{
+  margin:10px 15px; height:1px; background:var(--border);
 }
-.day-divider:first-of-type{margin-top:4px;}
 .next-event-hero{
   margin:0 15px 12px;padding:16px;border-radius:14px;
   background:linear-gradient(135deg,var(--accent) 0%,#2e6fd9 100%);
@@ -153,6 +149,12 @@ body{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   min-width:42px;
 }
+.ec-date-col{
+  font-size:10px;font-weight:600;color:var(--text-dim);
+  min-width:32px;text-align:center;font-variant-numeric:tabular-nums;
+  flex-shrink:0;
+}
+.ec-allday-label{font-size:11px;font-weight:600;color:var(--text-sub);}
 .ec-time{font-size:12px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.2;}
 .ec-time-end{font-size:10px;color:var(--text-dim);font-variant-numeric:tabular-nums;}
 .ec-bar{width:3px;border-radius:2px;align-self:stretch;min-height:28px;flex-shrink:0;}
@@ -200,6 +202,11 @@ body{
   white-space:nowrap;
 }
 .cal-mode-tab.active{background:var(--accent);color:#fff;}
+.cal-today-btn{
+  padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);
+  color:var(--text-sub);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;
+}
+.cal-today-btn:active{background:var(--accent);border-color:var(--accent);color:#fff;}
 .cal-nav-btn{
   width:26px;height:26px;border-radius:7px;border:none;background:var(--surface2);
   color:var(--text-sub);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;
@@ -392,6 +399,7 @@ body.radar-fs-active{overflow:hidden;}
 .loc-row{display:flex;gap:5px;align-items:center;padding:7px 15px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
 .loc-btn{padding:3px 11px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);color:var(--text-sub);font-size:11px;cursor:pointer;white-space:nowrap;transition:background 0.15s,color 0.15s,border-color 0.15s;}
 .loc-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.loc-btn.active.is-narita{background:#ff8c2e;border-color:#ff8c2e;color:#fff;}
 .loc-btn:active{opacity:0.7;}
 .card-resize-handle{position:absolute;bottom:0;left:0;right:0;height:10px;cursor:s-resize;z-index:5;}
 .card-resize-handle::after{content:'';position:absolute;bottom:0;left:5%;right:5%;height:2px;background:var(--border);border-radius:1px;transition:background 0.15s;}
@@ -411,7 +419,9 @@ body.radar-fs-active{overflow:hidden;}
 .bus-row:last-child{border-bottom:none;}
 .bus-time{font-size:16px;font-weight:500;font-variant-numeric:tabular-nums;min-width:50px;}
 .bus-until{font-size:11px;color:var(--accent);font-weight:600;min-width:65px;text-align:right;}
+.bus-until.is-narita{color:#ff8c2e;}
 .bus-next-label{font-size:9px;padding:2px 7px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;white-space:nowrap;}
+.bus-next-label.is-narita{background:#ff8c2e;}
 .bus-hint{padding:5px 15px 9px;font-size:10px;color:var(--text-dim);line-height:1.6;}
 .traffic-time-block{padding:12px 15px;}
 .traffic-time-block+.traffic-time-block{border-top:1px solid var(--border);}
@@ -484,6 +494,7 @@ body.radar-fs-active{overflow:hidden;}
               <button class="cal-mode-tab" data-mode="week" onclick="setCalMode('week')">週</button>
               <button class="cal-mode-tab" data-mode="month" onclick="setCalMode('month')">月</button>
             </div>
+            <button class="cal-today-btn" onclick="goToToday()">今日</button>
             <button class="cal-nav-btn" onclick="navCal(-1)">‹</button>
             <span class="cal-period-label" id="calPeriodLabel"></span>
             <button class="cal-nav-btn" onclick="navCal(1)">›</button>
@@ -527,7 +538,7 @@ body.radar-fs-active{overflow:hidden;}
           </div>
           <div class="loc-row" id="ycatDestRow">
             <button class="loc-btn" id="ycatBtn-haneda" onclick="setYcatDest('haneda')">✈ 羽田空港</button>
-            <button class="loc-btn" id="ycatBtn-narita" onclick="setYcatDest('narita')">✈ 成田空港</button>
+            <button class="loc-btn is-narita" id="ycatBtn-narita" onclick="setYcatDest('narita')">✈ 成田空港</button>
           </div>
           <div id="ycatBusBody"><div class="loading-text">計算中…</div></div>
         </div>
@@ -802,6 +813,14 @@ async function gcalFetchCalendarList(){
   return list;
 }
 
+/* 取得結果のキャッシュ（キー: 開始-終了-選択カレンダーID一覧） */
+const gcalRangeCache = new Map();
+const GCAL_CACHE_TTL_MS = 2*60*1000; // 2分間は再利用
+
+function gcalCacheKey(startDate,endDate,calIds){
+  return `${startDate.getTime()}_${endDate.getTime()}_${calIds.join(',')}`;
+}
+
 async function gcalFetchRange(startDate,endDate){
   let token=await gcalEnsureToken();
   if(!token) return null;
@@ -818,44 +837,69 @@ async function gcalFetchRange(startDate,endDate){
     ? calList
     : calList.filter(c=>selectedIds.includes(c.id));
 
+  // キャッシュ確認
+  const cacheKey = gcalCacheKey(startDate,endDate,targetCals.map(c=>c.id));
+  const cached = gcalRangeCache.get(cacheKey);
+  if(cached && (Date.now()-cached.fetchedAt) < GCAL_CACHE_TTL_MS){
+    return cached.events;
+  }
+
   const start=startDate.toISOString();
   const end=endDate.toISOString();
-  const all=[];
 
-  for(const cal of targetCals){
+  // 全カレンダーを並列で取得（直列待ちを解消）
+  const fetchOneCalendar = async (cal) => {
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`
+      +`?timeMin=${encodeURIComponent(start)}&timeMax=${encodeURIComponent(end)}`
+      +`&singleEvents=true&orderBy=startTime&maxResults=100`;
     try{
-      let evR=await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`
-        +`?timeMin=${encodeURIComponent(start)}&timeMax=${encodeURIComponent(end)}`
-        +`&singleEvents=true&orderBy=startTime&maxResults=100`,
-        {headers:{Authorization:`Bearer ${token}`}});
+      let evR=await fetch(url,{headers:{Authorization:`Bearer ${token}`}});
       if(evR.status===401){
-        token=await gcalRefreshAccessToken();
-        if(!token) continue;
-        evR=await fetch(
-          `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`
-          +`?timeMin=${encodeURIComponent(start)}&timeMax=${encodeURIComponent(end)}`
-          +`&singleEvents=true&orderBy=startTime&maxResults=100`,
-          {headers:{Authorization:`Bearer ${token}`}});
+        const newTok=await gcalRefreshAccessToken();
+        if(!newTok) return [];
+        token=newTok;
+        evR=await fetch(url,{headers:{Authorization:`Bearer ${newTok}`}});
       }
-      if(!evR.ok) continue;
+      if(!evR.ok) return [];
       const evD=await evR.json();
+      const out=[];
       for(const ev of (evD.items||[])){
         const isAllDay=!!ev.start?.date;
         const sdt=isAllDay?new Date(ev.start.date+'T00:00:00'):new Date(ev.start.dateTime);
         const edt=isAllDay?new Date(ev.end.date+'T00:00:00'):new Date(ev.end.dateTime);
         const title=ev.summary||'（タイトルなし）';
         const isFlight=/\bJ\d{1,4}\b|PAIRING|フライト|ペアリング/i.test(title+(cal.summary||''));
-        all.push({
+        out.push({
           start:sdt, end:edt, isAllDay, isFlight,
           title, loc:ev.location||'',
           calColor:cal.color||'#4a9eff', calName:cal.summary||'',
         });
       }
-    }catch(e){}
-  }
+      return out;
+    }catch(e){ return []; }
+  };
+
+  const results = await Promise.all(targetCals.map(fetchOneCalendar));
+  const all = results.flat();
   all.sort((a,b)=>a.start-b.start);
+
+  gcalRangeCache.set(cacheKey, { events: all, fetchedAt: Date.now() });
   return all;
+}
+
+/* 表示中の前後の期間を裏で先読みしておく（日付移動を高速化） */
+function gcalPrefetchAdjacent(){
+  if(calMode!=='day') return; // 今は日表示のみ先読み対象
+  const calIds = (gcalGetSelectedIds() ?? gcalGetCachedCalendarList().map(c=>c.id));
+  [-1,1].forEach(dir=>{
+    const d=new Date(calAnchorDate); d.setDate(d.getDate()+dir);
+    const start=new Date(d.getFullYear(),d.getMonth(),d.getDate(),0,0,0);
+    const end=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1,23,59,59);
+    const key=gcalCacheKey(start,end,calIds);
+    if(!gcalRangeCache.has(key)){
+      gcalFetchRange(start,end).catch(()=>{});
+    }
+  });
 }
 
 async function gcalFetchToday(){
@@ -890,6 +934,11 @@ function navCal(dir){
   if(calMode==='day')   calAnchorDate.setDate(calAnchorDate.getDate()+dir);
   if(calMode==='week')  calAnchorDate.setDate(calAnchorDate.getDate()+dir*7);
   if(calMode==='month') calAnchorDate.setMonth(calAnchorDate.getMonth()+dir);
+  loadCalendar();
+}
+
+function goToToday(){
+  calAnchorDate = new Date();
   loadCalendar();
 }
 
@@ -943,11 +992,11 @@ function renderEvents(events){
   const now=new Date();
   const isSameDay=(a,b)=>a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
 
-  const allDayEvents = events.filter(ev=>ev.isAllDay);
-  const timedEvents   = events.filter(ev=>!ev.isAllDay);
+  const timedEvents = events; // 終日も含めて統一カードで扱う
 
-  // 「次の予定」候補：表示範囲内で、開始時刻が今より後の最初のもの
+  // 「次の予定」候補：表示範囲内で、開始時刻が今より後の最初のもの（終日予定は除外）
   const upcoming = timedEvents
+    .filter(ev=>!ev.isAllDay)
     .map(ev=>({...ev, _startDate: ev.eventDate || parseTimeToDate(ev.startTime, now)}))
     .filter(ev=>ev._startDate && ev._startDate.getTime() > now.getTime())
     .sort((a,b)=>a._startDate-b._startDate);
@@ -955,14 +1004,6 @@ function renderEvents(events){
   const nextEvent = upcoming[0] || null;
 
   let html='';
-
-  allDayEvents.forEach(ev=>{
-    html+=`
-      <div class="allday-bar">
-        <div class="ab-dot" style="background:${ev.calColor}"></div>
-        <div class="ab-title">${ev.title}</div>
-      </div>`;
-  });
 
   if(nextEvent){
     const isFlight=nextEvent.isFlight;
@@ -979,12 +1020,11 @@ function renderEvents(events){
       </div>`;
   }
 
-  // 残りの予定（次の予定を除く）を日付ごとにグループ化して見出し付きで表示
+  // 残りの予定（次の予定を除く）を日付ごとにグループ化
   const restEvents = nextEvent
-    ? timedEvents.filter(ev=>!(ev.startTime===nextEvent.startTime && ev.title===nextEvent.title && isSameDay(ev.eventDate,nextEvent.eventDate)))
+    ? timedEvents.filter(ev=>!(ev===nextEvent || (ev.startTime===nextEvent.startTime && ev.title===nextEvent.title && isSameDay(ev.eventDate,nextEvent.eventDate))))
     : timedEvents;
 
-  // 日付（YYYY-MM-DD）でグルーピング
   const groups = new Map();
   restEvents.forEach(ev=>{
     const dKey = ev.eventDate
@@ -994,26 +1034,28 @@ function renderEvents(events){
     groups.get(dKey).push(ev);
   });
 
-  // 表示範囲が2日間にわたる場合は日付見出しを表示
-  const multiDay = groups.size > 1;
+  const dateKeys = [...groups.keys()];
 
-  groups.forEach((evs, dKey)=>{
-    if(multiDay && evs[0]?.eventDate){
-      const dt=evs[0].eventDate;
-      const isToday=isSameDay(dt,now);
-      html+=`<div class="day-divider">${isToday?'今日':'翌日'} ${dt.getMonth()+1}/${dt.getDate()}（${WDAYS[dt.getDay()]}）</div>`;
-    }
+  dateKeys.forEach((dKey,gi)=>{
+    const evs=groups.get(dKey);
+    // 2日目以降の境界に線を引く
+    if(gi>0) html+=`<div class="day-split-line"></div>`;
+
     evs.forEach(ev=>{
       const isFlight=ev.isFlight;
       const barColor=isFlight?'#ff6b2b':ev.calColor;
       const badge=isFlight?`<span class="event-badge flight">FLIGHT</span>`:'';
       const icon=isFlight?`<span class="ec-flight-icon">✈️</span>`:'';
       const loc=ev.loc?`<div class="ec-loc">📍 ${ev.loc}</div>`:'';
+      const dateLabel = ev.eventDate ? `${ev.eventDate.getMonth()+1}/${ev.eventDate.getDate()}` : '';
+
       html+=`
         <div class="event-card">
+          <div class="ec-date-col">${dateLabel}</div>
           <div class="ec-time-col">
-            <div class="ec-time">${ev.startTime}</div>
-            ${ev.endTime?`<div class="ec-time-end">${ev.endTime}</div>`:''}
+            ${ev.isAllDay
+              ? `<div class="ec-allday-label">終日</div>`
+              : `<div class="ec-time">${ev.startTime}</div>${ev.endTime?`<div class="ec-time-end">${ev.endTime}</div>`:''}`}
           </div>
           <div class="ec-bar" style="background:${barColor}"></div>
           ${icon}
@@ -1150,7 +1192,9 @@ async function loadCalendar(){
     return;
   }
 
-  el.innerHTML=`<div class="loading-text"><span class="spinner"></span> カレンダー読込中…</div>`;
+  el.innerHTML=el.innerHTML.includes('event-card')||el.innerHTML.includes('next-event-hero')||el.innerHTML.includes('week-view')||el.innerHTML.includes('month-view')
+    ? el.innerHTML // 既に何か表示中なら一旦そのまま保持（チラつき防止）
+    : `<div class="loading-text"><span class="spinner"></span> カレンダー読込中…</div>`;
   try{
     const range=getRangeForMode();
     const events=await gcalFetchRange(range.start,range.end);
@@ -1173,6 +1217,7 @@ async function loadCalendar(){
         eventDate:ev.start, // 日付グルーピング用
       }));
       renderEvents(dayEvents);
+      gcalPrefetchAdjacent(); // 隣の日を裏で先読み
     } else if(calMode==='week'){
       renderWeekView(events,range.start);
     } else {
@@ -1484,6 +1529,8 @@ function renderYcatBus(){
   const schedule=YCAT_TBL[currentYcatDest];
   const info=YCAT_INFO[currentYcatDest];
   const el=document.getElementById('ycatBusBody');
+  const isNarita = currentYcatDest==='narita';
+  const accentColor = isNarita ? '#ff8c2e' : 'var(--accent)';
   const upcoming=schedule.map(t=>{
     const[h,m]=t.split(':').map(Number);
     return{time:t,diff:h*60+m-nowMin};
@@ -1494,11 +1541,11 @@ function renderYcatBus(){
     return`<div class="bus-row">
       <div class="bus-time">${x.time}</div>
       <div style="flex:1;font-size:11px;color:var(--text-sub)">${info.sub}</div>
-      <div class="bus-until">${until}</div>
-      ${i===0?'<div class="bus-next-label">次発</div>':''}
+      <div class="bus-until ${isNarita?'is-narita':''}">${until}</div>
+      ${i===0?`<div class="bus-next-label ${isNarita?'is-narita':''}">次発</div>`:''}
     </div>`;
   }).join('')
-  +`<div class="bus-hint">所要 ${info.time}　※時刻は目安です。<a href="https://www.ycat.co.jp/route/" target="_blank" style="color:var(--accent)">公式サイト</a>で確認を</div>`;
+  +`<div class="bus-hint">所要 ${info.time}　※時刻は目安です。<a href="https://www.ycat.co.jp/route/" target="_blank" style="color:${accentColor}">公式サイト</a>で確認を</div>`;
 }
 
 const GMAPS_KEY_STORE='gmaps_api_key';
