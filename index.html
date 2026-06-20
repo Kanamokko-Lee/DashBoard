@@ -133,6 +133,9 @@ body{
   font-size:16px;font-weight:700;color:var(--accent);text-align:left;
   flex-shrink:0;line-height:1.1;white-space:nowrap;
 }
+.ec-countdown.cd-green{color:var(--good);}
+.ec-countdown.cd-yellow{color:#f0c419;}
+.ec-countdown.cd-red{color:var(--danger);}
 .ec-countdown-unit{font-size:10px;font-weight:500;margin-left:1px;}
 .event-card{
   display:flex;align-items:center;gap:11px;
@@ -341,6 +344,10 @@ body{
 .ycat-card.status-warn{background:linear-gradient(135deg,#ff9f4318,transparent);}
 .ycat-card.status-bad{background:linear-gradient(135deg,#ff6b6b18,transparent);}
 .ycat-icon{font-size:22px;flex-shrink:0;}
+.ycat-route-inline{
+  font-size:12px;font-weight:700;color:var(--text-sub);flex-shrink:0;
+  white-space:nowrap;padding-right:4px;border-right:1px solid var(--border);
+}
 .ycat-info{flex:1;min-width:0;}
 .ycat-route{font-size:10px;color:var(--text-dim);font-weight:600;letter-spacing:0.04em;}
 .ycat-status-label{font-size:13px;font-weight:600;margin-top:1px;}
@@ -502,6 +509,10 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
 .badge-ok{background:#26de8122;color:var(--good);}
 .badge-delay{background:#ff6b6b22;color:var(--danger);}
 .bus-list-scroll{max-height:230px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.bus-date-divider{
+  padding:6px 15px;font-size:10px;font-weight:700;color:var(--text-dim);
+  background:var(--surface2);letter-spacing:0.04em;position:sticky;top:0;
+}
 .bus-row{display:flex;align-items:center;padding:7px 15px;gap:8px;border-bottom:1px solid var(--border);}
 .bus-row:last-child{border-bottom:none;}
 .bus-time{font-size:16px;font-weight:500;font-variant-numeric:tabular-nums;min-width:50px;}
@@ -619,10 +630,6 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
             <span class="card-title">YCATバス時刻</span>
             <a class="cal-settings-btn" href="https://www.ycat.co.jp/route/" target="_blank" title="公式サイト" style="font-size:10px;text-decoration:none;display:flex;align-items:center;justify-content:center;">🔗</a>
             <span class="card-refresh" id="ycatRefresh"></span>
-          </div>
-          <div class="ycat-toggle-row">
-            <button class="ycat-toggle-btn active" id="ycatDirYcat2Haneda" onclick="setYcatDir('ycat2haneda')">YCAT→羽田</button>
-            <button class="ycat-toggle-btn" id="ycatDirHaneda2Ycat" onclick="setYcatDir('haneda2ycat')">羽田→YCAT</button>
           </div>
           <div id="ycatStatusArea">
             <div class="loading-text"><span class="spinner"></span> 取得中…</div>
@@ -1192,17 +1199,23 @@ function updateHeroCountdown(){
   const target=Number(hero.dataset.target);
   const diffMin=Math.round((target-Date.now())/60000);
 
+  // 残り時間に応じて色を切り替え（緑→黄→赤）
+  cd.classList.remove('cd-green','cd-yellow','cd-red');
+  if(diffMin<=10) cd.classList.add('cd-red');
+  else if(diffMin<=30) cd.classList.add('cd-yellow');
+  else if(diffMin<60) cd.classList.add('cd-green');
+
   if(diffMin<=0){
     cd.innerHTML=`まもなく`;
     hero.classList.remove('is-soon');
     return;
   }
   if(diffMin<60){
-    cd.innerHTML=`${diffMin}<span class="ec-countdown-unit">分</span>`;
+    cd.innerHTML=`あと${diffMin}<span class="ec-countdown-unit">分</span>`;
     if(diffMin<=15) hero.classList.add('is-soon');
   }else{
     const h=Math.floor(diffMin/60), m=diffMin%60;
-    cd.innerHTML=`${h}<span class="ec-countdown-unit">時間</span>${m>0?` ${m}<span class="ec-countdown-unit">分</span>`:''}`;
+    cd.innerHTML=`あと${h}<span class="ec-countdown-unit">時間</span>${m>0?` ${m}<span class="ec-countdown-unit">分</span>`:''}`;
   }
 }
 
@@ -1624,17 +1637,7 @@ async function loadWeather(){
   }catch(e){document.getElementById('weatherHourly').innerHTML=`<div style="padding:14px;color:var(--text-sub);font-size:12px">天気を取得できませんでした</div>`;}
 }
 
-const YCAT_DIR_KEY='ycat_direction';
-let ycatDir = localStorage.getItem(YCAT_DIR_KEY) || 'ycat2haneda';
 let ycatRefreshTimer = null;
-
-function setYcatDir(dir){
-  ycatDir = dir;
-  localStorage.setItem(YCAT_DIR_KEY, dir);
-  document.getElementById('ycatDirYcat2Haneda').classList.toggle('active', dir==='ycat2haneda');
-  document.getElementById('ycatDirHaneda2Ycat').classList.toggle('active', dir==='haneda2ycat');
-  loadYcatStatus();
-}
 
 async function loadYcatStatus(){
   const area=document.getElementById('ycatStatusArea');
@@ -1645,7 +1648,7 @@ async function loadYcatStatus(){
   }
 
   try{
-    const res=await fetch(`${proxy}/ycat-status?dir=${ycatDir}`);
+    const res=await fetch(`${proxy}/ycat-status?dir=ycat2haneda`);
     const data=await res.json();
 
     document.getElementById('ycatRefresh').textContent=fmtTime(new Date());
@@ -1655,28 +1658,12 @@ async function loadYcatStatus(){
       return;
     }
 
-    const routeLabel = ycatDir==='ycat2haneda' ? 'YCAT → 羽田空港' : '羽田空港 → YCAT';
-
-    // 羽田→YCAT方向には、そもそもYCAT公式サイトに運行状況表示の仕組みがない
-    if(ycatDir==='haneda2ycat'){
-      area.innerHTML=`
-        <div class="ycat-card">
-          <div class="ycat-icon">🚌</div>
-          <div class="ycat-info">
-            <div class="ycat-route">${routeLabel}</div>
-            <div class="ycat-status-label">運行状況の提供なし</div>
-            <div class="ycat-detail">この方向はYCAT公式サイトに運行状況表示がありません。下の時刻表をご確認ください</div>
-          </div>
-        </div>`;
-      return;
-    }
-
     if(!data.statusLabel){
       area.innerHTML=`
         <div class="ycat-card">
+          <div class="ycat-route-inline">YCAT→羽田</div>
           <div class="ycat-icon">🚌</div>
           <div class="ycat-info">
-            <div class="ycat-route">${routeLabel}</div>
             <div class="ycat-status-label">運行時間外</div>
             ${data.firstBus?`<div class="ycat-detail">始発バス ${data.firstBus}</div>`:''}
           </div>
@@ -1691,9 +1678,9 @@ async function loadYcatStatus(){
 
     area.innerHTML=`
       <div class="ycat-card ${statusClass}">
+        <div class="ycat-route-inline">YCAT→羽田</div>
         <div class="ycat-icon">${icon}</div>
         <div class="ycat-info">
-          <div class="ycat-route">${routeLabel}</div>
           <div class="ycat-status-label">${data.statusLabel}</div>
           ${data.detail?`<div class="ycat-detail">${data.detail}</div>`:''}
         </div>
@@ -1703,11 +1690,6 @@ async function loadYcatStatus(){
     area.innerHTML=`<div class="no-events" style="font-size:11px">通信エラー</div>`;
     console.error('YCAT status error:',e);
   }
-}
-
-function initYcatToggleState(){
-  document.getElementById('ycatDirYcat2Haneda')?.classList.toggle('active', ycatDir==='ycat2haneda');
-  document.getElementById('ycatDirHaneda2Ycat')?.classList.toggle('active', ycatDir==='haneda2ycat');
 }
 
 const TRAIN_LINES_KEY='train_selected_v1';
@@ -1810,23 +1792,41 @@ function renderYcatBus(){
   const el=document.getElementById('ycatBusBody');
   const isNarita = currentYcatDest==='narita';
   const accentColor = isNarita ? '#ff8c2e' : 'var(--accent)';
-  const upcoming=schedule.map(t=>{
+
+  // 本日の残り便（diffは「今から何分後か」、本日0:00基準の分数）
+  const todayBuses = schedule.map(t=>{
     const[h,m]=t.split(':').map(Number);
-    return{time:t,diff:h*60+m-nowMin};
-  }).filter(x=>x.diff>=-2); // 本日の残り全便を表示（5件に絞らない）
-  if(!upcoming.length){el.innerHTML=`<div class="no-events">本日の運行は終了しました</div>`;return;}
-  el.innerHTML=`<div class="bus-list-scroll">`
-  + upcoming.map((x,i)=>{
+    return{time:t,diff:h*60+m-nowMin,isTomorrow:false};
+  }).filter(x=>x.diff>=-2);
+
+  // 翌日の全便（本日0:00基準で、24時間=1440分を加算）
+  const tomorrowBuses = schedule.map(t=>{
+    const[h,m]=t.split(':').map(Number);
+    return{time:t,diff:(h*60+m+1440)-nowMin,isTomorrow:true};
+  });
+
+  const upcoming = [...todayBuses, ...tomorrowBuses];
+  if(!upcoming.length){el.innerHTML=`<div class="no-events">運行情報がありません</div>`;return;}
+
+  let html=`<div class="bus-list-scroll">`;
+  let tomorrowDividerShown=false;
+  upcoming.forEach((x,i)=>{
+    if(x.isTomorrow && !tomorrowDividerShown){
+      html+=`<div class="bus-date-divider">翌日</div>`;
+      tomorrowDividerShown=true;
+    }
     const until=x.diff<=0?'出発済':x.diff<60?`あと${x.diff}分`:`あと${Math.floor(x.diff/60)}時間${x.diff%60}分`;
-    return`<div class="bus-row">
+    const isNextBus = i===0 && todayBuses.length>0; // 「次発」バッジは本日分がある時のみ先頭に表示
+    html+=`<div class="bus-row">
       <div class="bus-time">${x.time}</div>
       <div style="flex:1;font-size:11px;color:var(--text-sub)">${info.sub}</div>
       <div class="bus-until ${isNarita?'is-narita':''}">${until}</div>
-      ${i===0?`<div class="bus-next-label ${isNarita?'is-narita':''}">次発</div>`:''}
+      ${isNextBus?`<div class="bus-next-label ${isNarita?'is-narita':''}">次発</div>`:''}
     </div>`;
-  }).join('')
-  + `</div>`
-  + `<div class="bus-hint">所要 ${info.time}　※時刻は目安です。<a href="https://www.ycat.co.jp/route/" target="_blank" style="color:${accentColor}">公式サイト</a>で確認を</div>`;
+  });
+  html+=`</div>`;
+  html+=`<div class="bus-hint">所要 ${info.time}　※時刻は目安です。<a href="https://www.ycat.co.jp/route/" target="_blank" style="color:${accentColor}">公式サイト</a>で確認を</div>`;
+  el.innerHTML=html;
 }
 
 const GMAPS_KEY_STORE='gmaps_api_key';
@@ -2482,8 +2482,6 @@ async function init(){
   document.querySelectorAll('.cal-mode-tab').forEach(t=>{
     t.classList.toggle('active',t.dataset.mode===calMode);
   });
-
-  initYcatToggleState();
 
   document.getElementById('radarSrcJma')?.classList.toggle('active',radarSource==='jma');
   document.getElementById('radarSrcRainviewer')?.classList.toggle('active',radarSource==='rainviewer');
