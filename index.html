@@ -123,20 +123,18 @@ body{
   background:linear-gradient(135deg,var(--accent) 0%,#2e6fd9 100%);
   color:#fff;position:relative;overflow:hidden;
 }
-.next-event-hero.is-flight{
-  background:linear-gradient(135deg,#ff6b2b 0%,#d9491a 100%);
-}
 .next-event-hero.is-soon{
   animation:heroGlow 2s ease-in-out infinite;
 }
 @keyframes heroGlow{
-  0%,100%{box-shadow:0 0 0 0 rgba(255,107,43,0.4);}
-  50%{box-shadow:0 0 0 8px rgba(255,107,43,0);}
+  0%,100%{box-shadow:0 0 0 0 rgba(74,158,255,0.4);}
+  50%{box-shadow:0 0 0 8px rgba(74,158,255,0);}
 }
 .hero-label{font-size:10px;font-weight:700;letter-spacing:0.1em;opacity:0.85;text-transform:uppercase;}
-.hero-countdown{font-size:34px;font-weight:200;letter-spacing:-1px;line-height:1.1;margin-top:2px;}
-.hero-countdown .hero-unit{font-size:16px;font-weight:400;margin-left:3px;}
-.hero-title{font-size:15px;font-weight:600;margin-top:6px;line-height:1.3;}
+.hero-main-row{display:flex;align-items:baseline;gap:10px;margin-top:3px;flex-wrap:wrap;}
+.hero-countdown{font-size:24px;font-weight:200;letter-spacing:-1px;line-height:1.1;flex-shrink:0;}
+.hero-countdown .hero-unit{font-size:13px;font-weight:400;margin-left:2px;}
+.hero-title{font-size:15px;font-weight:600;line-height:1.3;min-width:0;}
 .hero-meta{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;opacity:0.9;}
 .hero-icon{font-size:20px;position:absolute;top:14px;right:16px;opacity:0.5;}
 .event-card{
@@ -336,11 +334,12 @@ body{
 }
 .ycat-toggle-btn.active{background:var(--accent);color:#fff;}
 .radar-body{position:relative;}
-.radar-container{position:relative;width:100%;height:300px;}
+.radar-container{position:relative;width:100%;height:300px;background:#0a0d12;}
 .radar-container.is-fullscreen{
   position:fixed; inset:0; width:100vw; height:100vh;
   z-index:5000; border-radius:0;
   padding-top:env(safe-area-inset-top,0);
+  background:#0a0d12;
 }
 .radar-exit-fullscreen-btn{
   position:absolute; top:8px; right:8px; z-index:1001;
@@ -349,8 +348,9 @@ body{
   color:#fff; font-size:12px; font-weight:600; cursor:pointer;
 }
 .radar-exit-fullscreen-btn:active{background:rgba(74,158,255,0.4);}
-body.radar-fs-active{overflow:hidden;}
-#radarMap{width:100%;height:100%;}
+body.radar-fs-active{overflow:hidden;background:#0a0d12;}
+#radarMap{width:100%;height:100%;background:#0a0d12;}
+.leaflet-container{background:#0a0d12 !important;}
 .leaflet-control-attribution{font-size:8px!important;background:rgba(0,0,0,0.5)!important;color:rgba(255,255,255,0.5)!important;}
 .leaflet-control-attribution a{color:rgba(255,255,255,0.4)!important;}
 .radar-float-btns{position:absolute;bottom:8px;left:8px;display:flex;gap:5px;z-index:1000;flex-wrap:wrap;}
@@ -1007,12 +1007,15 @@ function renderEvents(events){
 
   if(nextEvent){
     const isFlight=nextEvent.isFlight;
+    const heroStyle = isFlight ? ` style="background:linear-gradient(135deg,${nextEvent.calColor} 0%,${nextEvent.calColor}cc 100%)"` : '';
     html+=`
-      <div class="next-event-hero ${isFlight?'is-flight':''}" id="heroCard" data-target="${nextEvent._startDate.getTime()}">
+      <div class="next-event-hero ${isFlight?'is-flight':''}" id="heroCard" data-target="${nextEvent._startDate.getTime()}"${heroStyle}>
         <div class="hero-icon">${isFlight?'✈️':'⏰'}</div>
         <div class="hero-label">次の予定まで</div>
-        <div class="hero-countdown" id="heroCountdown">--<span class="hero-unit">分</span></div>
-        <div class="hero-title">${nextEvent.title}</div>
+        <div class="hero-main-row">
+          <div class="hero-countdown" id="heroCountdown">--<span class="hero-unit">分</span></div>
+          <div class="hero-title">${nextEvent.title}</div>
+        </div>
         <div class="hero-meta">
           <span>🕐 ${nextEvent.startTime}${nextEvent.endTime?`–${nextEvent.endTime}`:''}</span>
           ${nextEvent.loc?`<span>📍 ${nextEvent.loc}</span>`:''}
@@ -1043,8 +1046,8 @@ function renderEvents(events){
 
     evs.forEach(ev=>{
       const isFlight=ev.isFlight;
-      const barColor=isFlight?'#ff6b2b':ev.calColor;
-      const badge=isFlight?`<span class="event-badge flight">FLIGHT</span>`:'';
+      const barColor=ev.calColor; // カレンダー設定色を常に使用
+      const badge=isFlight?`<span class="event-badge flight" style="background:${ev.calColor}">FLIGHT</span>`:'';
       const icon=isFlight?`<span class="ec-flight-icon">✈️</span>`:'';
       const loc=ev.loc?`<div class="ec-loc">📍 ${ev.loc}</div>`:'';
       const dateLabel = ev.eventDate ? `${ev.eventDate.getMonth()+1}/${ev.eventDate.getDate()}` : '';
@@ -1674,7 +1677,14 @@ function toggleRadarFullscreen(){
   const isFs=container.classList.toggle('is-fullscreen');
   document.body.classList.toggle('radar-fs-active',isFs);
   exitBtn.style.display = isFs ? '' : 'none';
-  if(radarMap) setTimeout(()=>radarMap.invalidateSize(),60);
+
+  if(radarMap){
+    const center=radarMap.getCenter();
+    const zoom=radarMap.getZoom();
+    // レイアウト確定後に複数回リサイズして確実に追従させる
+    setTimeout(()=>{ radarMap.invalidateSize(); radarMap.setView(center, zoom, {animate:false}); }, 80);
+    setTimeout(()=>{ radarMap.invalidateSize(); radarMap.setView(center, zoom, {animate:false}); }, 300);
+  }
 }
 
 /* ESCキーで全画面を閉じる */
@@ -1687,9 +1697,9 @@ document.addEventListener('keydown',e=>{
 
 async function loadRadar(){
   if(!radarMap){
-    radarMap=L.map('radarMap',{center:[36.2,138.0],zoom:6,zoomControl:true});
+    radarMap=L.map('radarMap',{center:[36.2,138.0],zoom:6,zoomControl:true,maxZoom:18});
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-      attribution:'&copy; CARTO &copy; OSM',subdomains:'abcd',maxZoom:12
+      attribution:'&copy; CARTO &copy; OSM',subdomains:'abcd',maxZoom:18,maxNativeZoom:12
     }).addTo(radarMap);
   }
   if(radarLayer){radarMap.removeLayer(radarLayer);radarLayer=null;}
@@ -1708,7 +1718,7 @@ async function loadRadar(){
       document.getElementById('radarTimePill').textContent=`気象庁ナウキャスト ${label}`;
       radarLayer=L.tileLayer(
         `https://www.jma.go.jp/bosai/jmatile/data/nowc/${bt}/none/${vt}/surf/hrpns/{z}/{x}/{y}.png`,
-        {opacity:0.75,maxZoom:10,attribution:'気象庁 降水ナウキャスト'}
+        {opacity:0.75,maxZoom:18,maxNativeZoom:10,attribution:'気象庁 降水ナウキャスト'}
       ).addTo(radarMap);
     }catch(e){
       document.getElementById('radarTimePill').textContent='取得失敗';
@@ -1729,7 +1739,7 @@ async function loadRadar(){
     document.getElementById('radarTimePill').textContent=`🌧 ${hh}:${mm} (RainViewer)`;
     radarLayer=L.tileLayer(
       `${data.host}${latest.path}/256/{z}/{x}/{y}/6/1_1.png`,
-      {opacity:0.6,maxZoom:12,attribution:'RainViewer'}
+      {opacity:0.6,maxZoom:18,maxNativeZoom:9,attribution:'RainViewer'}
     ).addTo(radarMap);
   }catch(e){
     document.getElementById('radarTimePill').textContent='取得失敗';
