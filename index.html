@@ -370,6 +370,15 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
   -webkit-backface-visibility:hidden;
 }
 .leaflet-map-pane{background:#0a0d12;}
+/* 雨雲オーバーレイは「スクリーン」合成で重ねることで、
+   不透明度を上げてもベースマップが暗くならないようにする */
+.radar-overlay-layer{
+  mix-blend-mode:screen;
+  background:transparent !important;
+}
+.radar-overlay-layer .leaflet-tile{
+  background:transparent !important;
+}
 .leaflet-control-attribution{font-size:8px!important;background:rgba(0,0,0,0.5)!important;color:rgba(255,255,255,0.5)!important;}
 .leaflet-control-attribution a{color:rgba(255,255,255,0.4)!important;}
 .radar-float-btns{position:absolute;bottom:8px;left:8px;display:flex;gap:5px;z-index:1000;flex-wrap:wrap;}
@@ -439,6 +448,14 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
   width:16px;height:16px;border-radius:50%;
   background:var(--accent);cursor:pointer;border:2px solid var(--surface);
 }
+.radar-slider-track{position:relative;flex:1;display:flex;align-items:center;}
+.radar-slider-track .radar-slider{width:100%;}
+.radar-now-marker{
+  position:absolute;top:50%;width:2px;height:14px;
+  background:var(--warn);border-radius:1px;
+  transform:translate(-1px,-50%);pointer-events:none;
+}
+.radar-container.is-fullscreen .radar-now-marker{background:#ffb84d;}
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .footer{text-align:center;padding:5px 14px 14px;font-size:10px;color:var(--text-dim);cursor:pointer;line-height:1.6;}
@@ -656,12 +673,15 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
             <div class="radar-controls" id="radarControlsPanel">
               <div class="radar-control-row">
                 <span class="radar-control-label">不透明度</span>
-                <input type="range" id="radarOpacitySlider" class="radar-slider" min="0.1" max="1" step="0.05" value="0.8" oninput="setRadarOpacity(this.value)">
-                <span class="radar-control-value" id="radarOpacityLabel">80%</span>
+                <input type="range" id="radarOpacitySlider" class="radar-slider" min="0.1" max="1" step="0.05" value="0.4" oninput="setRadarOpacity(this.value)">
+                <span class="radar-control-value" id="radarOpacityLabel">40%</span>
               </div>
               <div class="radar-control-row" id="radarTimeSliderWrap" style="display:none">
                 <span class="radar-control-label">時刻</span>
-                <input type="range" id="radarTimeSlider" class="radar-slider" min="0" max="0" step="1" value="0">
+                <div class="radar-slider-track">
+                  <input type="range" id="radarTimeSlider" class="radar-slider" min="0" max="0" step="1" value="0">
+                  <div class="radar-now-marker" id="radarNowMarker"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -1985,7 +2005,7 @@ function setBaseMap(type){
 
 /* ── レーダーの不透明度（共通） ── */
 const RADAR_OPACITY_KEY='radar_opacity';
-let radarOpacity = parseFloat(localStorage.getItem(RADAR_OPACITY_KEY) || '0.8');
+let radarOpacity = parseFloat(localStorage.getItem(RADAR_OPACITY_KEY) || '0.4');
 
 function setRadarOpacity(val){
   radarOpacity = parseFloat(val);
@@ -2016,6 +2036,7 @@ const JmaEvenZoomTileLayer = L.TileLayer.extend({
 /* ── 時間フレーム管理（気象庁・RainViewer共通のスライダー用） ── */
 let radarFrames = [];      // [{label, value(基準/対象時刻文字列 or RainViewerパス)}]
 let radarFrameIndex = 0;   // 0=最新
+let radarNowFrameCount = 0; // 配列末尾から数えて何個先が「現在」フレームか（予報フレーム数と一致）
 
 function buildRadarSlider(){
   const wrap=document.getElementById('radarTimeSliderWrap');
@@ -2030,6 +2051,17 @@ function buildRadarSlider(){
     radarFrameIndex = radarFrames.length-1-Number(e.target.value);
     renderRadarFrame();
   };
+
+  // 「現在」位置に縦線マーカーを表示
+  const marker=document.getElementById('radarNowMarker');
+  if(marker && radarFrames.length>1){
+    const nowSliderValue = radarFrames.length-1-radarNowFrameCount;
+    const pct = (nowSliderValue / (radarFrames.length-1)) * 100;
+    marker.style.left = `calc(${pct}% )`;
+    marker.style.display='';
+  } else if(marker){
+    marker.style.display='none';
+  }
 }
 
 function renderRadarFrame(){
@@ -2039,6 +2071,11 @@ function renderRadarFrame(){
   radarLayer = frame.makeLayer();
   radarLayer.setOpacity(radarOpacity);
   radarLayer.addTo(radarMap);
+  // 雨雲オーバーレイのDOMコンテナにクラスを付与し、CSSのブレンドモードで
+  // 「不透明度を上げるとベースマップが暗くなる」現象を防ぐ
+  if(radarLayer._container){
+    radarLayer._container.classList.add('radar-overlay-layer');
+  }
   document.getElementById('radarTimePill').textContent = frame.label;
 }
 
@@ -2088,6 +2125,7 @@ async function loadRadar(){
       }));
 
       radarFrames = [...obsFrames, ...fcstFrames];
+      radarNowFrameCount = fcstFrames.length; // 末尾から数えてfcstFrames.length個先が「現在」
       if(radarFrameIndex===0 || radarFrameIndex>=radarFrames.length){
         radarFrameIndex = fcstFrames.length>0 ? fcstFrames.length : 0; // 最新の実況を初期値に
       }
@@ -2100,7 +2138,7 @@ async function loadRadar(){
     return;
   }
 
-  // RainViewer: 公式サンプルに合わせ maxNativeZoom=7（512pxタイル使用）
+  // RainViewer: 公式サンプルに合わせ tileSize=256, color=2 (Universal Blue), maxNativeZoom=7
   try{
     const resp=await fetch('https://api.rainviewer.com/public/weather-maps.json');
     const data=await resp.json();
@@ -2116,19 +2154,20 @@ async function loadRadar(){
     const pFrames = pastFrames.map(f=>({
       label: rvLabel(f.time, '実況 '),
       makeLayer: () => L.tileLayer(
-        `${data.host}${f.path}/512/{z}/{x}/{y}/6/1_1.png`,
-        {maxZoom:19,maxNativeZoom:7,tileSize:512,attribution:'RainViewer'}
+        `${data.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`,
+        {maxZoom:19,maxNativeZoom:7,tileSize:256,attribution:'RainViewer'}
       ),
     }));
     const nFrames = nowcastFrames.map(f=>({
       label: rvLabel(f.time, '予報 '),
       makeLayer: () => L.tileLayer(
-        `${data.host}${f.path}/512/{z}/{x}/{y}/6/1_1.png`,
-        {maxZoom:19,maxNativeZoom:7,tileSize:512,attribution:'RainViewer'}
+        `${data.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`,
+        {maxZoom:19,maxNativeZoom:7,tileSize:256,attribution:'RainViewer'}
       ),
     }));
 
     radarFrames = [...pFrames, ...nFrames];
+    radarNowFrameCount = nFrames.length; // 末尾から数えてnFrames.length個先が「現在」
     if(radarFrameIndex===0 || radarFrameIndex>=radarFrames.length){
       radarFrameIndex = nFrames.length>0 ? nFrames.length : 0;
     }
