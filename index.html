@@ -355,6 +355,8 @@ body{
 .ycat-minutes{
   font-size:22px;font-weight:300;text-align:right;flex-shrink:0;line-height:1;
 }
+.ycat-minutes.minutes-orange{color:#ff8c2e;font-weight:600;}
+.ycat-minutes.minutes-red{color:var(--danger);font-weight:700;}
 .ycat-minutes .ycat-unit{font-size:11px;font-weight:400;color:var(--text-sub);}
 .ycat-toggle-row{display:flex;gap:6px;padding:0 15px 6px;}
 .ycat-toggle-btn{
@@ -1673,8 +1675,18 @@ async function loadYcatStatus(){
 
     let statusClass='status-ok';
     let icon='✅';
-    if(data.statusLabel.includes('注意')||data.statusLabel.includes('遅延')){statusClass='status-warn';icon='⚠️';}
+    const hasCongestionWord = (data.statusLabel||'').includes('渋滞') || (data.detail||'').includes('渋滞');
+
+    if(data.statusLabel.includes('注意')||data.statusLabel.includes('遅延')||hasCongestionWord){statusClass='status-warn';icon='⚠️';}
     if(data.statusLabel.includes('運休')||data.statusLabel.includes('大幅')){statusClass='status-bad';icon='🛑';}
+
+    // 所要時間が長い場合も警告色を強める（30分超=オレンジ、45分以上=赤）
+    if(data.minutes){
+      if(data.minutes>=45){ statusClass='status-bad'; if(icon==='✅') icon='⚠️'; }
+      else if(data.minutes>30){ if(statusClass==='status-ok'){ statusClass='status-warn'; icon='⚠️'; } }
+    }
+
+    const minutesClass = data.minutes>=45?'minutes-red':(data.minutes>30?'minutes-orange':'');
 
     area.innerHTML=`
       <div class="ycat-card ${statusClass}">
@@ -1684,7 +1696,7 @@ async function loadYcatStatus(){
           <div class="ycat-status-label">${data.statusLabel}</div>
           ${data.detail?`<div class="ycat-detail">${data.detail}</div>`:''}
         </div>
-        ${data.minutes?`<div class="ycat-minutes">${data.minutes}<span class="ycat-unit">分</span></div>`:''}
+        ${data.minutes?`<div class="ycat-minutes ${minutesClass}">${data.minutes}<span class="ycat-unit">分</span></div>`:''}
       </div>`;
   }catch(e){
     area.innerHTML=`<div class="no-events" style="font-size:11px">通信エラー</div>`;
