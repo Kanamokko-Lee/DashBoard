@@ -1190,7 +1190,7 @@ function renderEvents(events){
 
   if(nextEvent){
     updateHeroCountdown();
-    countdownTimer=setInterval(updateHeroCountdown,30000);
+    countdownTimer=setInterval(updateHeroCountdown,15000);
   }
 }
 
@@ -2520,6 +2520,48 @@ async function init(){
   setInterval(renderYcatBus, 60*1000);
   setInterval(fetchTrafficData, 5*60*1000);
 }
+
+/* ══════════════════════════════════════
+   画面がバックグラウンドから復帰した時の同期処理
+   - 日表示中で、表示範囲に「今日」が含まれていなければ今日にリセット
+   - カレンダー・カウントダウンを即時更新
+══════════════════════════════════════ */
+let lastVisibilityRefresh = 0;
+
+function isTodayInDayViewRange(){
+  const now=new Date();
+  const start=new Date(calAnchorDate.getFullYear(),calAnchorDate.getMonth(),calAnchorDate.getDate());
+  const end=new Date(start); end.setDate(end.getDate()+1); // 2日間表示なので+1日まで含む
+  return now>=start && now<end;
+}
+
+async function handleVisibilityResume(){
+  // 短時間に連続発火するのを防ぐため、3秒以内の再実行はスキップ
+  const nowTs=Date.now();
+  if(nowTs - lastVisibilityRefresh < 3000) return;
+  lastVisibilityRefresh = nowTs;
+
+  updateClock(); // 時計を即時更新
+
+  let needsCalReload = false;
+  if(calMode==='day' && !isTodayInDayViewRange()){
+    calAnchorDate = new Date(); // 今日にリセット
+    needsCalReload = true;
+  }
+
+  if(needsCalReload){
+    await loadCalendar();
+  } else if(calMode==='day'){
+    // 日付範囲は今日のままだが、カウントダウン表示は即時更新
+    updateHeroCountdown();
+  }
+}
+
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible') handleVisibilityResume();
+});
+window.addEventListener('focus', handleVisibilityResume);
+window.addEventListener('pageshow', handleVisibilityResume);
 
 document.getElementById('footer').addEventListener('click',async()=>{
   document.getElementById('scheduleBody').innerHTML=`<div class="loading-text"><span class="spinner"></span> 更新中…</div>`;
