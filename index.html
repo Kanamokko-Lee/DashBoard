@@ -303,13 +303,17 @@ body{
   display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;flex:1;min-width:0;
 }
 .weather-now-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-sub);}
+.wind-arrow{
+  display:inline-block;font-size:13px;font-weight:700;color:var(--accent);
+  transition:transform 0.3s; line-height:1;
+}
 .weather-now-item b{color:var(--text);font-weight:600;}
 .weather-hourly{display:flex;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
 .weather-hourly::-webkit-scrollbar{display:none;}
 .hour-slot{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:48px;padding:0 2px;}
 .hour-label{font-size:10px;color:var(--text-sub);font-variant-numeric:tabular-nums;}
 .hour-icon{font-size:17px;}
-.hour-temp{font-size:12px;font-weight:500;}
+.hour-temp{font-size:17px;font-weight:600;}
 .hour-rain{font-size:10px;color:var(--accent2);min-height:13px;}
 .hour-precip-bar-track{
   width:10px;height:32px;border-radius:4px;background:var(--surface2);
@@ -372,6 +376,16 @@ body{
   padding-top:env(safe-area-inset-top,0);
   background:#0a0d12;
 }
+.radar-fullscreen-btn{
+  position:absolute; top:8px; right:8px; z-index:1001;
+  width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+  border-radius:10px; border:1px solid rgba(255,255,255,0.18);
+  background:rgba(13,15,20,0.75); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  color:#fff; cursor:pointer;
+  box-shadow:0 2px 8px rgba(0,0,0,0.3);
+}
+.radar-fullscreen-btn:active{background:rgba(74,158,255,0.5);}
+.radar-container.is-fullscreen .radar-fullscreen-btn{display:none;}
 .radar-exit-fullscreen-btn{
   position:absolute; top:8px; right:8px; z-index:1001;
   padding:6px 12px; border-radius:16px; border:1px solid rgba(255,255,255,0.15);
@@ -510,7 +524,7 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
 .train-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;white-space:nowrap;}
 .badge-ok{background:#26de8122;color:var(--good);}
 .badge-delay{background:#ff6b6b22;color:var(--danger);}
-.bus-list-scroll{max-height:136px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.bus-list-scroll{max-height:102px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .bus-date-divider{
   padding:6px 15px;font-size:10px;font-weight:700;color:var(--text-dim);
   background:var(--surface2);letter-spacing:0.04em;position:sticky;top:0;
@@ -525,17 +539,20 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
 .bus-hint{padding:5px 15px 9px;font-size:10px;color:var(--text-dim);line-height:1.6;}
 .traffic-time-block{padding:12px 15px;}
 .traffic-time-block+.traffic-time-block{border-top:1px solid var(--border);}
-.traffic-route-label{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-sub);margin-bottom:8px;flex-wrap:wrap;}
+.traffic-route-label{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12px;color:var(--text-sub);margin-bottom:8px;}
+.traffic-route-text{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0;}
 .traffic-route-label strong{color:var(--text);font-weight:500;}
-.traffic-cells{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.traffic-maps-link{
+  flex-shrink:0;font-size:15px;text-decoration:none;padding:3px 6px;
+  border-radius:7px;background:var(--surface2);border:1px solid var(--border);
+}
+.traffic-maps-link:active{background:var(--accent);border-color:var(--accent);}
+.traffic-cells{display:flex;align-items:center;gap:6px;margin-bottom:0;}
 .traffic-cell{flex:1;background:var(--surface2);border-radius:9px;padding:7px 8px;text-align:center;}
 .traffic-cell-label{font-size:9px;color:var(--text-dim);letter-spacing:0.05em;margin-bottom:3px;text-transform:uppercase;}
 .traffic-cell-val{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;}
 .traffic-cell-unit{font-size:10px;font-weight:400;margin-left:1px;}
 .traffic-status-icon{font-size:22px;flex-shrink:0;}
-.traffic-maps-btn{display:block;text-align:center;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text-sub);font-size:11px;text-decoration:none;}
-.traffic-maps-btn:active{background:var(--accent);color:#fff;border-color:var(--accent);}
-.traffic-footer{padding:6px 15px 10px;font-size:10px;color:var(--text-dim);border-top:1px solid var(--border);}
 </style>
 </head>
 <body>
@@ -667,7 +684,6 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
             <span class="drag-handle">⠿</span>
             <span class="card-icon">🛰</span>
             <span class="card-title">雨雲レーダー</span>
-            <button class="cal-settings-btn" id="radarFullscreenBtn" onclick="toggleRadarFullscreen()" title="全画面表示">⛶</button>
           </div>
           <div class="radar-body" id="radarBody">
             <div class="radar-container" id="radarContainer">
@@ -676,6 +692,14 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
                 <button class="radar-source-btn active" id="radarSrcJma" onclick="setRadarSource('jma')">気象庁</button>
                 <button class="radar-source-btn" id="radarSrcRainviewer" onclick="setRadarSource('rainviewer')">RainViewer</button>
               </div>
+              <button class="radar-fullscreen-btn" id="radarFullscreenBtn" onclick="toggleRadarFullscreen()" title="全画面表示">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
+                  <path d="M16 3h3a2 2 0 0 1 2 2v3"/>
+                  <path d="M8 21H5a2 2 0 0 1-2-2v-3"/>
+                  <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+                </svg>
+              </button>
               <div class="radar-time-pill" id="radarTimePill">読込中…</div>
               <button class="radar-exit-fullscreen-btn" id="radarExitFsBtn" onclick="toggleRadarFullscreen()" style="display:none">✕ 閉じる</button>
               <div class="radar-legend">
@@ -986,6 +1010,11 @@ async function gcalFetchRange(startDate,endDate){
         const isAllDay=!!ev.start?.date;
         const sdt=isAllDay?new Date(ev.start.date+'T00:00:00'):new Date(ev.start.dateTime);
         const edt=isAllDay?new Date(ev.end.date+'T00:00:00'):new Date(ev.end.dateTime);
+
+        // 終日予定が表示範囲の開始日より前から始まっている場合は除外する
+        // （時間指定の予定は、前日開始・当日終了でも残す）
+        if(isAllDay && sdt < startDate) continue;
+
         const title=ev.summary||'（タイトルなし）';
         const isFlight=/\bJ\d{1,4}\b|PAIRING|フライト|ペアリング/i.test(title+(cal.summary||''));
         out.push({
@@ -1563,11 +1592,14 @@ function selectWeatherLocation(lat,lon,name){
   loadWeather();
 }
 
-const WIND_DIRS=['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西'];
-function degToWindDir(deg){
-  if(deg===undefined||deg===null) return '';
-  const idx=Math.round(deg/22.5)%16;
-  return WIND_DIRS[idx];
+/* 風向(度)をそのまま返す。矢印は「風が吹いてくる方向を指す」ように
+   気象学の風向角(0=北から吹く)をCSS transform用に180度反転して使う */
+function windDegToArrowRotation(deg){
+  if(deg===undefined||deg===null) return 0;
+  return (deg + 180) % 360; // 矢印は「風が吹いていく先」を指すよう反転
+}
+function kmhToMs(kmh){
+  return Math.round((kmh / 3.6) * 10) / 10; // 小数点1桁
 }
 
 async function loadWeather(){
@@ -1587,18 +1619,22 @@ async function loadWeather(){
     // ヘッダー（カード右上の表示用、現在気温）
     const ct=cur?Math.round(cur.temperature_2m):Math.round(hr.temperature_2m[curH]);
     const cw=cur?cur.weathercode:hr.weathercode[curH];
-    document.getElementById('headerTemp').textContent=`${ct}°`;
+    document.getElementById('headerTemp').textContent=`${ct}℃`;
     document.getElementById('headerDesc').textContent=`${WMO_ICO[cw]||''} ${WMO_TXT[cw]||''}`;
 
     // 現在の天気詳細ブロック
     if(cur){
-      const windDir=degToWindDir(cur.winddirection_10m);
+      const windRot=windDegToArrowRotation(cur.winddirection_10m);
+      const windMs=kmhToMs(cur.windspeed_10m);
       document.getElementById('weatherNow').innerHTML=`
         <div class="weather-now-icon">${WMO_ICO[cw]||'❓'}</div>
-        <div class="weather-now-temp">${Math.round(cur.temperature_2m)}°</div>
+        <div class="weather-now-temp">${Math.round(cur.temperature_2m)}℃</div>
         <div class="weather-now-grid">
           <div class="weather-now-item">💧 降水量 <b>${cur.precipitation??0}mm</b></div>
-          <div class="weather-now-item">💨 風 <b>${windDir} ${Math.round(cur.windspeed_10m)}km/h</b></div>
+          <div class="weather-now-item">
+            <span class="wind-arrow" style="transform:rotate(${windRot}deg)">↑</span>
+            風 <b>${windMs}m/s</b>
+          </div>
           <div class="weather-now-item">😌 湿度 <b>${cur.relative_humidity_2m??'-'}%</b></div>
           <div class="weather-now-item">☁️ <b>${WMO_TXT[cw]||''}</b></div>
         </div>`;
@@ -1617,7 +1653,7 @@ async function loadWeather(){
       slots+=`<div class="hour-slot">
         <div class="hour-label">${String(i).padStart(2,'0')}時</div>
         <div class="hour-icon">${WMO_ICO[hr.weathercode[i]]||'❓'}</div>
-        <div class="hour-temp">${Math.round(hr.temperature_2m[i])}°</div>
+        <div class="hour-temp">${Math.round(hr.temperature_2m[i])}℃</div>
         <div class="hour-rain">${prp>0?`💧${prp}%`:''}</div>
         <div class="hour-precip-bar-track">
           <div class="hour-precip-bar" style="height:${barPct}%"></div>
@@ -1627,13 +1663,13 @@ async function loadWeather(){
     }
     document.getElementById('weatherHourly').innerHTML=slots;
     const maxT=Math.round(da.temperature_2m_max[0]),minT=Math.round(da.temperature_2m_min[0]);
-    const rain=da.precipitation_probability_max[0],wind=Math.round(da.windspeed_10m_max[0]);
+    const rain=da.precipitation_probability_max[0],windMs=kmhToMs(da.windspeed_10m_max[0]);
     const sunR=(da.sunrise[0]||'').slice(11,16),sunS=(da.sunset[0]||'').slice(11,16);
     document.getElementById('weatherSummary').innerHTML=`
-      <div class="weather-stat"><div class="weather-stat-label">最高</div><div class="weather-stat-val" style="color:var(--danger)">${maxT}°</div></div>
-      <div class="weather-stat"><div class="weather-stat-label">最低</div><div class="weather-stat-val" style="color:var(--accent)">${minT}°</div></div>
+      <div class="weather-stat"><div class="weather-stat-label">最高</div><div class="weather-stat-val" style="color:var(--danger)">${maxT}℃</div></div>
+      <div class="weather-stat"><div class="weather-stat-label">最低</div><div class="weather-stat-val" style="color:var(--accent)">${minT}℃</div></div>
       <div class="weather-stat"><div class="weather-stat-label">降水確率</div><div class="weather-stat-val">${rain}%</div></div>
-      <div class="weather-stat"><div class="weather-stat-label">最大風速</div><div class="weather-stat-val">${wind}<span style="font-size:9px">km/h</span></div></div>
+      <div class="weather-stat"><div class="weather-stat-label">最大風速</div><div class="weather-stat-val">${windMs}<span style="font-size:9px">m/s</span></div></div>
       <div class="weather-stat"><div class="weather-stat-label">日の出</div><div class="weather-stat-val" style="font-size:13px">${sunR}</div></div>
       <div class="weather-stat"><div class="weather-stat-label">日の入</div><div class="weather-stat-val" style="font-size:13px">${sunS}</div></div>`;
   }catch(e){document.getElementById('weatherHourly').innerHTML=`<div style="padding:14px;color:var(--text-sub);font-size:12px">天気を取得できませんでした</div>`;}
@@ -1903,9 +1939,12 @@ async function fetchTrafficData(){
       const icon=diff>15?'🔴':diff>5?'🟡':'🟢';
       return`<div class="traffic-time-block">
         <div class="traffic-route-label">
-          ${r.fromIcon} <strong>${r.from}</strong>
-          <span style="color:var(--text-dim)">→</span>
-          ${r.toIcon} <strong>${r.to}</strong>
+          <span class="traffic-route-text">
+            ${r.fromIcon} <strong>${r.from}</strong>
+            <span style="color:var(--text-dim)">→</span>
+            ${r.toIcon} <strong>${r.to}</strong>
+          </span>
+          <a class="traffic-maps-link" href="${r.mapsUrl}" target="_blank" title="Googleマップで詳細確認">🗺️</a>
         </div>
         <div class="traffic-cells">
           <div class="traffic-cell"><div class="traffic-cell-label">通常</div><div class="traffic-cell-val">${normalMin}<span class="traffic-cell-unit">分</span></div></div>
@@ -1913,11 +1952,10 @@ async function fetchTrafficData(){
           <div class="traffic-cell" style="border:1px solid ${diffColor}44"><div class="traffic-cell-label">差</div><div class="traffic-cell-val" style="color:${diffColor}">${diffSign}${diff}<span class="traffic-cell-unit">分</span></div></div>
           <div class="traffic-status-icon">${icon}</div>
         </div>
-        <a class="traffic-maps-btn" href="${r.mapsUrl}" target="_blank">Googleマップで詳細確認 →</a>
       </div>`;
     }).join('<div style="height:1px;background:var(--border);margin:0 15px"></div>');
-    el.innerHTML=blocks+`<div class="traffic-footer">Googleマップ リアルタイム交通情報 — ${fmtTime(now)} 更新</div>`;
-    document.getElementById('trafficRefresh').textContent=fmtTime(now);
+    el.innerHTML=blocks;
+    document.getElementById('trafficRefresh').textContent=`Gマップ ${fmtTime(now)}更新`;
   }catch(e){
     const msg=String(e);
     if(msg.includes('load_failed')||msg.includes('InvalidKey')||msg.includes('ApiNotActivated')){
