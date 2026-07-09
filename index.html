@@ -497,7 +497,41 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
 .radar-container.is-fullscreen .radar-now-marker{background:#ffb84d;}
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;}
 @keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── 発車案内ウィジェット ── */
+.dep-tab-row{display:flex;gap:4px;padding:6px 15px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.dep-tab{
+  padding:3px 10px;border-radius:10px;border:none;background:var(--surface2);
+  color:var(--text-sub);font-size:11px;font-weight:600;cursor:pointer;
+}
+.dep-tab.active{background:var(--accent);color:#fff;}
+.dep-list{padding:4px 0 8px;}
+.dep-row{
+  display:flex;align-items:center;gap:8px;padding:5px 15px;
+  border-bottom:1px solid var(--border);
+}
+.dep-row:last-child{border-bottom:none;}
+.dep-time{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;min-width:50px;flex-shrink:0;}
+.dep-until{font-size:11px;font-weight:600;min-width:60px;text-align:right;flex-shrink:0;}
+.dep-until.soon0{color:var(--danger);animation:blinkRed 0.8s infinite;}
+.dep-until.soon1{color:var(--danger);}
+.dep-until.soon3{color:var(--warn);}
+.dep-until.ok{color:var(--good);}
+.dep-next-badge{font-size:9px;padding:2px 7px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;white-space:nowrap;}
+@keyframes blinkRed{0%,100%{opacity:1;}50%{opacity:0.2;}}
+.dep-setup{padding:12px 15px;font-size:12px;color:var(--text-sub);}
+.dep-setup p{margin-bottom:8px;line-height:1.5;}
+.dep-setup-row{display:flex;gap:6px;margin-bottom:6px;}
+.dep-url-input{flex:1;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;outline:none;-webkit-appearance:none;}
+.dep-url-input:focus{border-color:var(--accent);}
+.dep-fetch-btn{padding:7px 12px;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;border:none;cursor:pointer;white-space:nowrap;}
+.dep-fetch-btn:active{opacity:0.8;}
+.dep-settings-panel{display:none;padding:10px 15px;border-top:1px solid var(--border);background:var(--surface2);}
+.dep-settings-panel.open{display:block;}
+.dep-settings-label{font-size:10px;color:var(--text-dim);font-weight:600;letter-spacing:0.04em;margin-bottom:6px;}
 .footer{text-align:center;padding:5px 14px 14px;font-size:10px;color:var(--text-dim);cursor:pointer;line-height:1.6;}
+</style>
+</head>
 .layout-controls{display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:0 4px 8px;}
 .layout-label{font-size:10px;color:var(--text-dim);margin-right:2px;}
 .col-btn{padding:2px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text-sub);font-size:11px;font-weight:500;cursor:pointer;transition:background 0.15s,color 0.15s;}
@@ -627,6 +661,49 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
         </div>
       </div>
 
+      <!-- 発車案内ウィジェット（京急逗子葉山・JR逗子） -->
+      <div class="widget" id="w-dep" data-col="0" draggable="false">
+        <div class="card">
+          <div class="card-header">
+            <span class="drag-handle">⠿</span>
+            <span class="card-icon">🚃</span>
+            <span class="card-title">発車案内</span>
+            <button class="cal-settings-btn" id="depSettingsBtn" onclick="toggleDepSettings()" title="時刻取込設定">⚙</button>
+            <span class="card-refresh" id="depRefresh"></span>
+          </div>
+          <!-- 設定パネル（折りたたみ） -->
+          <div class="dep-settings-panel" id="depSettingsPanel">
+            <div class="dep-settings-label">京急逗子葉山（横浜方面）</div>
+            <div class="dep-setup-row">
+              <input class="dep-url-input" id="depKqUrlWd" placeholder="平日URL (norikae.keikyu.co.jp…)">
+              <button class="dep-fetch-btn" onclick="fetchDepTimes('kq','weekday')">取込</button>
+            </div>
+            <div class="dep-setup-row">
+              <input class="dep-url-input" id="depKqUrlSh" placeholder="土日祝URL">
+              <button class="dep-fetch-btn" onclick="fetchDepTimes('kq','holiday')">取込</button>
+            </div>
+            <div class="dep-settings-label" style="margin-top:10px">JR逗子駅（横浜・東京方面）</div>
+            <div class="dep-setup-row">
+              <input class="dep-url-input" id="depJrUrlWd" placeholder="平日URL (jreast-timetable.jp…)">
+              <button class="dep-fetch-btn" onclick="fetchDepTimes('jr','weekday')">取込</button>
+            </div>
+            <div class="dep-setup-row">
+              <input class="dep-url-input" id="depJrUrlSh" placeholder="土日祝URL">
+              <button class="dep-fetch-btn" onclick="fetchDepTimes('jr','holiday')">取込</button>
+            </div>
+            <p style="font-size:10px;color:var(--text-dim);margin-top:6px">各路線の公式時刻表ページのURLをそのまま貼り付けて「取込」を押してください。</p>
+          </div>
+          <!-- 路線タブ -->
+          <div class="dep-tab-row">
+            <button class="dep-tab active" id="depTabKq" onclick="setDepTab('kq')">🚃 京急</button>
+            <button class="dep-tab" id="depTabJr" onclick="setDepTab('jr')">🚂 JR</button>
+          </div>
+          <div class="dep-list" id="depBody">
+            <div class="loading-text"><span class="spinner"></span> 取得中…</div>
+          </div>
+        </div>
+      </div>
+
       <div class="widget" id="w-train" data-col="0" draggable="false">
         <div class="card">
           <div class="card-header">
@@ -671,6 +748,21 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
             <span class="card-refresh" id="trafficRefresh"></span>
           </div>
           <div id="trafficBody"></div>
+        </div>
+      </div>
+
+      <!-- QB Houseカード -->
+      <div class="widget" id="w-qbhouse" data-col="0" draggable="false">
+        <div class="card">
+          <div class="card-header">
+            <span class="drag-handle">⠿</span>
+            <span class="card-icon">✂️</span>
+            <span class="card-title">QB House 逗子葉山駅</span>
+            <span id="qbRefresh" class="card-refresh"></span>
+          </div>
+          <div id="qbBody">
+            <div class="loading-text"><span class="spinner"></span> 取得中…</div>
+          </div>
         </div>
       </div>
 
@@ -1740,6 +1832,157 @@ async function loadYcatStatus(){
   }
 }
 
+/* ══════════════════════════════════════
+   発車案内ウィジェット（京急逗子葉山・JR逗子）
+   時刻はWorker経由でスクレイピング → localStorage に保存
+══════════════════════════════════════ */
+const DEP_STORE_KEY = 'dep_timetable_v1';
+let depTab = 'kq'; // 現在表示中タブ
+let depRefreshTimer = null;
+
+function getDepStore(){
+  try{ return JSON.parse(localStorage.getItem(DEP_STORE_KEY)||'{}'); }catch(e){ return {}; }
+}
+function saveDepStore(data){ localStorage.setItem(DEP_STORE_KEY, JSON.stringify(data)); }
+
+function isHoliday(){
+  const d = new Date().getDay();
+  return d===0 || d===6; // 土日（祝日は未判定、とりあえず曜日で代替）
+}
+
+function setDepTab(tab){
+  depTab = tab;
+  document.getElementById('depTabKq').classList.toggle('active', tab==='kq');
+  document.getElementById('depTabJr').classList.toggle('active', tab==='jr');
+  renderDepBoard();
+}
+
+function toggleDepSettings(){
+  const p = document.getElementById('depSettingsPanel');
+  const btn = document.getElementById('depSettingsBtn');
+  const open = p.classList.toggle('open');
+  btn.classList.toggle('active', open);
+  if(open) loadDepSettingsUI();
+}
+
+function loadDepSettingsUI(){
+  // 現在保存済みのURLをUIに反映
+  // （URLは保存しないのでプレースホルダーのみ）
+}
+
+async function fetchDepTimes(line, dayType){
+  const inputId = line==='kq'
+    ? (dayType==='weekday' ? 'depKqUrlWd' : 'depKqUrlSh')
+    : (dayType==='weekday' ? 'depJrUrlWd' : 'depJrUrlSh');
+  const input = document.getElementById(inputId);
+  const rawUrl = input?.value?.trim();
+  if(!rawUrl){ alert('URLを入力してください'); return; }
+
+  const proxy = gcalProxyUrl();
+  if(!proxy){ alert('Worker URLが設定されていません'); return; }
+
+  const endpoint = line==='kq' ? 'keikyu-timetable' : 'jr-timetable';
+  const btn = input.nextElementSibling;
+  const origText = btn.textContent;
+  btn.textContent = '取得中…'; btn.disabled = true;
+
+  try{
+    const r = await fetch(`${proxy}/${endpoint}?url=${encodeURIComponent(rawUrl)}`);
+    const data = await r.json();
+    if(!data.ok){ alert('取得失敗: ' + (data.error||'不明')); return; }
+
+    const store = getDepStore();
+    if(!store[line]) store[line] = {};
+    store[line][dayType] = data.times;
+    saveDepStore(store);
+    input.value = '';
+    alert(`${line==='kq'?'京急':'JR'} ${dayType==='weekday'?'平日':'土日祝'}: ${data.times.length}本 取込完了`);
+    renderDepBoard();
+  }catch(e){
+    alert('通信エラー: ' + e.message);
+  }finally{
+    btn.textContent = origText; btn.disabled = false;
+  }
+}
+
+function renderDepBoard(){
+  const el = document.getElementById('depBody');
+  const store = getDepStore();
+  const dayType = isHoliday() ? 'holiday' : 'weekday';
+  const times = store[depTab]?.[dayType] || [];
+
+  if(!times.length){
+    el.innerHTML = `<div class="dep-setup">
+      <p>⚙を押してURLを取り込んでください。<br>
+      <a href="${depTab==='kq'
+        ? 'https://norikae.keikyu.co.jp/transit/norikae/T5?USR=PC&dw=0&slCode=252-4&d=1'
+        : 'https://www.jreast-timetable.jp/timetable/list0899.html'}"
+        target="_blank" style="color:var(--accent)">
+        ${depTab==='kq'?'京急公式時刻表':'JR東日本公式時刻表'}を開く →
+      </a></p>
+    </div>`;
+    return;
+  }
+
+  const now = new Date();
+  const nowMin = now.getHours()*60 + now.getMinutes();
+
+  // 分数に変換して残り本数を計算
+  const rows = times.map(t=>{
+    const [h,m] = t.split(':').map(Number);
+    return { time:t, diff: h*60+m - nowMin };
+  }).filter(r=>r.diff>=-1); // 1分前まで表示
+
+  if(!rows.length){
+    el.innerHTML = `<div class="no-events">本日の運行は終了しました</div>`;
+    return;
+  }
+
+  el.innerHTML = rows.slice(0,5).map((r,i)=>{
+    const diffMin = r.diff;
+    let untilText, untilClass;
+    if(diffMin<=0){ untilText='まもなく'; untilClass='soon0'; }
+    else if(diffMin<=1){ untilText=`あと${diffMin}分`; untilClass='soon1'; }
+    else if(diffMin<=3){ untilText=`あと${diffMin}分`; untilClass='soon3'; }
+    else { untilText=`あと${diffMin}分`; untilClass='ok'; }
+    return `<div class="dep-row">
+      <div class="dep-time">${r.time}</div>
+      <div style="flex:1"></div>
+      <div class="dep-until ${untilClass}">${untilText}</div>
+      ${i===0?'<div class="dep-next-badge">次発</div>':''}
+    </div>`;
+  }).join('');
+
+  document.getElementById('depRefresh').textContent = fmtTime(now);
+}
+
+async function loadQbHouse(){
+  const el = document.getElementById('qbBody');
+  const refreshEl = document.getElementById('qbRefresh');
+  // QB Houseはリンクカード + 営業時間表示
+  const now = new Date();
+  const h = now.getHours(), day = now.getDay();
+  const isWeekend = day===0||day===6;
+  const openH = isWeekend ? 9 : 10;
+  const closeH = isWeekend ? 19 : 20;
+  const isOpen = h>=openH && h<closeH;
+  refreshEl.textContent = fmtTime(now);
+  el.innerHTML=`
+    <div style="padding:12px 15px;display:flex;align-items:center;gap:12px">
+      <div style="width:14px;height:14px;border-radius:50%;background:${isOpen?'var(--good)':'var(--text-dim)'};flex-shrink:0"></div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${isOpen?'営業中':'営業時間外'}</div>
+        <div style="font-size:11px;color:var(--text-sub)">
+          ${isWeekend?'土日祝':'平日'} ${openH}:00–${closeH}:00
+        </div>
+      </div>
+      <a href="https://www.qbhouse.co.jp/search/269" target="_blank"
+         style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text-sub);font-size:11px;text-decoration:none;flex-shrink:0">
+        待ち人数を確認 →
+      </a>
+    </div>`;
+}
+
 const TRAIN_LINES_KEY='train_selected_v1';
 const TRAIN_LINES=[
   {id:'jrtokaido',  name:'JR東海道線',     keys:['東海道線']},
@@ -2549,6 +2792,8 @@ async function init(){
   const calPromise = skipCalendarReload ? Promise.resolve() : loadCalendar();
 
   setYcatDest(currentYcatDest);
+  renderDepBoard();
+  loadQbHouse();
   await Promise.all([calPromise,loadWeather(),loadRadar(),loadYcatStatus(),loadTrainDelay(),fetchTrafficData()]);
   updateFooter();
 
@@ -2557,6 +2802,10 @@ async function init(){
   setInterval(loadTrainDelay, 5*60*1000);
   setInterval(renderYcatBus, 60*1000);
   setInterval(fetchTrafficData, 5*60*1000);
+  // 発車案内は1分ごとに更新（カウントダウン更新のため）
+  if(depRefreshTimer) clearInterval(depRefreshTimer);
+  depRefreshTimer = setInterval(renderDepBoard, 60*1000);
+  setInterval(loadQbHouse, 10*60*1000);
 }
 
 /* ══════════════════════════════════════
@@ -2608,6 +2857,8 @@ document.getElementById('footer').addEventListener('click',async()=>{
   document.getElementById('trainBody').innerHTML=`<div class="loading-text"><span class="spinner"></span> 更新中…</div>`;
   await Promise.all([loadCalendar(),loadWeather(),loadRadar(),loadYcatStatus(),loadTrainDelay(),fetchTrafficData()]);
   renderYcatBus();
+  renderDepBoard();
+  loadQbHouse();
   updateFooter();
 });
 
