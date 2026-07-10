@@ -498,29 +498,35 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
-/* ── 発車案内ウィジェット ── */
-.dep-tab-row{display:flex;gap:4px;padding:6px 15px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
-.dep-tab{
-  padding:3px 10px;border-radius:10px;border:none;background:var(--surface2);
-  color:var(--text-sub);font-size:11px;font-weight:600;cursor:pointer;
+/* ── 発車案内ウィジェット（2列レイアウト） ── */
+.dep-two-col{display:flex;border-top:1px solid var(--border);}
+.dep-col{flex:1;min-width:0;}
+.dep-col-divider{width:1px;background:var(--border);flex-shrink:0;}
+.dep-col-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:5px 12px;border-bottom:1px solid var(--border);
+  background:var(--surface2);
 }
-.dep-tab.active{background:var(--accent);color:#fff;}
-.dep-list{padding:4px 0 8px;}
+.dep-col-name{font-size:11px;font-weight:700;color:var(--text-sub);}
+.dep-col-status{font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;}
+.dep-col-status.ok{background:#26de8122;color:var(--good);}
+.dep-col-status.delay{background:#ff6b6b22;color:var(--danger);}
+.dep-list{padding:3px 0 6px;}
 .dep-row{
-  display:flex;align-items:center;gap:8px;padding:5px 15px;
+  display:flex;align-items:center;gap:6px;padding:4px 12px;
   border-bottom:1px solid var(--border);
 }
 .dep-row:last-child{border-bottom:none;}
-.dep-time{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;min-width:50px;flex-shrink:0;}
-.dep-until{font-size:11px;font-weight:600;min-width:60px;text-align:right;flex-shrink:0;}
+.dep-time{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;flex-shrink:0;}
+.dep-until{font-size:10px;font-weight:600;flex:1;text-align:right;flex-shrink:0;}
 .dep-until.soon0{color:var(--danger);animation:blinkRed 0.8s infinite;}
 .dep-until.soon1{color:var(--danger);}
 .dep-until.soon3{color:var(--warn);}
 .dep-until.ok{color:var(--good);}
-.dep-next-badge{font-size:9px;padding:2px 7px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;white-space:nowrap;}
+.dep-next-badge{font-size:8px;padding:1px 5px;border-radius:6px;background:var(--accent);color:#fff;font-weight:700;white-space:nowrap;flex-shrink:0;}
 @keyframes blinkRed{0%,100%{opacity:1;}50%{opacity:0.2;}}
-.dep-setup{padding:12px 15px;font-size:12px;color:var(--text-sub);}
-.dep-setup p{margin-bottom:8px;line-height:1.5;}
+.dep-setup{padding:10px 12px;font-size:12px;color:var(--text-sub);}
+.dep-setup p{margin-bottom:6px;line-height:1.5;}
 .dep-setup-row{display:flex;gap:6px;margin-bottom:6px;}
 .dep-url-input{flex:1;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;outline:none;-webkit-appearance:none;}
 .dep-url-input:focus{border-color:var(--accent);}
@@ -682,7 +688,7 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
             </div>
             <div class="dep-settings-label" style="margin-top:10px">JR逗子駅（横浜・東京方面）</div>
             <div class="dep-setup-row">
-              <input class="dep-url-input" id="depJrUrlWd" placeholder="平日URL (jreast-timetable.jp…)">
+              <input class="dep-url-input" id="depJrUrlWd" placeholder="平日URL (timetables.jreast.co.jp…)">
               <button class="dep-fetch-btn" onclick="fetchDepTimes('jr','weekday')">取込</button>
             </div>
             <div class="dep-setup-row">
@@ -691,28 +697,28 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
             </div>
             <p style="font-size:10px;color:var(--text-dim);margin-top:6px">各路線の公式時刻表ページのURLをそのまま貼り付けて「取込」を押してください。</p>
           </div>
-          <!-- 路線タブ -->
-          <div class="dep-tab-row">
-            <button class="dep-tab active" id="depTabKq" onclick="setDepTab('kq')">🚃 京急</button>
-            <button class="dep-tab" id="depTabJr" onclick="setDepTab('jr')">🚂 JR</button>
+          <!-- 2列レイアウト：京急 / JR を横並びで表示 -->
+          <div class="dep-two-col">
+            <div class="dep-col">
+              <div class="dep-col-header">
+                <span class="dep-col-name">🚃 京急</span>
+                <span class="dep-col-status" id="depStatusKq"></span>
+              </div>
+              <div class="dep-list" id="depBodyKq">
+                <div class="loading-text" style="font-size:11px;padding:10px 12px"><span class="spinner"></span></div>
+              </div>
+            </div>
+            <div class="dep-col-divider"></div>
+            <div class="dep-col">
+              <div class="dep-col-header">
+                <span class="dep-col-name">🚂 JR</span>
+                <span class="dep-col-status" id="depStatusJr"></span>
+              </div>
+              <div class="dep-list" id="depBodyJr">
+                <div class="loading-text" style="font-size:11px;padding:10px 12px"><span class="spinner"></span></div>
+              </div>
+            </div>
           </div>
-          <div class="dep-list" id="depBody">
-            <div class="loading-text"><span class="spinner"></span> 取得中…</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="widget" id="w-train" data-col="0" draggable="false">
-        <div class="card">
-          <div class="card-header">
-            <span class="drag-handle">⠿</span>
-            <span class="card-icon">🚉</span>
-            <span class="card-title">鉄道運行情報</span>
-            <button class="cal-settings-btn" id="trainSettingsBtn" onclick="toggleTrainSettings()" title="路線選択">☰</button>
-            <span class="card-refresh" id="trainRefresh"></span>
-          </div>
-          <div class="train-settings-panel" id="trainSettingsPanel"></div>
-          <div id="trainBody"><div class="loading-text"><span class="spinner"></span> 取得中…</div></div>
         </div>
       </div>
 
@@ -1835,7 +1841,6 @@ async function loadYcatStatus(){
    時刻はWorker経由でスクレイピング → localStorage に保存
 ══════════════════════════════════════ */
 const DEP_STORE_KEY = 'dep_timetable_v1';
-let depTab = 'kq'; // 現在表示中タブ
 let depRefreshTimer = null;
 
 function getDepStore(){
@@ -1845,14 +1850,7 @@ function saveDepStore(data){ localStorage.setItem(DEP_STORE_KEY, JSON.stringify(
 
 function isHoliday(){
   const d = new Date().getDay();
-  return d===0 || d===6; // 土日（祝日は未判定、とりあえず曜日で代替）
-}
-
-function setDepTab(tab){
-  depTab = tab;
-  document.getElementById('depTabKq').classList.toggle('active', tab==='kq');
-  document.getElementById('depTabJr').classList.toggle('active', tab==='jr');
-  renderDepBoard();
+  return d===0 || d===6;
 }
 
 function toggleDepSettings(){
@@ -1860,12 +1858,6 @@ function toggleDepSettings(){
   const btn = document.getElementById('depSettingsBtn');
   const open = p.classList.toggle('open');
   btn.classList.toggle('active', open);
-  if(open) loadDepSettingsUI();
-}
-
-function loadDepSettingsUI(){
-  // 現在保存済みのURLをUIに反映
-  // （URLは保存しないのでプレースホルダーのみ）
 }
 
 async function fetchDepTimes(line, dayType){
@@ -1877,7 +1869,7 @@ async function fetchDepTimes(line, dayType){
   if(!rawUrl){ alert('URLを入力してください'); return; }
 
   const proxy = gcalProxyUrl();
-  if(!proxy){ alert('Worker URLが設定されていません'); return; }
+  if(!proxy){ alert('今日の予定カードの⚙からWorker URLを設定してください'); return; }
 
   const endpoint = line==='kq' ? 'keikyu-timetable' : 'jr-timetable';
   const btn = input.nextElementSibling;
@@ -1903,40 +1895,32 @@ async function fetchDepTimes(line, dayType){
   }
 }
 
-function renderDepBoard(){
-  const el = document.getElementById('depBody');
+/* 1つの列（京急またはJR）の発車リストHTMLを生成 */
+function buildDepColHtml(line, dayType){
   const store = getDepStore();
-  const dayType = isHoliday() ? 'holiday' : 'weekday';
-  const times = store[depTab]?.[dayType] || [];
+  const times = store[line]?.[dayType] || [];
 
   if(!times.length){
-    el.innerHTML = `<div class="dep-setup">
-      <p>⚙を押してURLを取り込んでください。<br>
-      <a href="${depTab==='kq'
-        ? 'https://norikae.keikyu.co.jp/transit/norikae/T5?USR=PC&dw=0&slCode=252-4&d=1'
-        : 'https://www.jreast-timetable.jp/timetable/list0899.html'}"
-        target="_blank" style="color:var(--accent)">
-        ${depTab==='kq'?'京急公式時刻表':'JR東日本公式時刻表'}を開く →
-      </a></p>
+    const href = line==='kq'
+      ? 'https://norikae.keikyu.co.jp/transit/norikae/T5?USR=PC&dw=0&slCode=252-4&d=1'
+      : 'https://timetables.jreast.co.jp/timetable/list0899.html';
+    const label = line==='kq' ? '京急公式' : 'JR公式';
+    return `<div class="dep-setup" style="padding:8px 12px;font-size:11px;color:var(--text-sub)">
+      <p>⚙から取込</p>
+      <a href="${href}" target="_blank" style="color:var(--accent);font-size:10px">${label}→</a>
     </div>`;
-    return;
   }
 
   const now = new Date();
   const nowMin = now.getHours()*60 + now.getMinutes();
-
-  // 分数に変換して残り本数を計算
   const rows = times.map(t=>{
     const [h,m] = t.split(':').map(Number);
     return { time:t, diff: h*60+m - nowMin };
-  }).filter(r=>r.diff>=-1); // 1分前まで表示
+  }).filter(r=>r.diff>=-1);
 
-  if(!rows.length){
-    el.innerHTML = `<div class="no-events">本日の運行は終了しました</div>`;
-    return;
-  }
+  if(!rows.length) return `<div style="padding:8px 12px;font-size:11px;color:var(--text-dim)">本日終了</div>`;
 
-  el.innerHTML = rows.slice(0,5).map((r,i)=>{
+  return rows.slice(0,5).map((r,i)=>{
     const diffMin = r.diff;
     let untilText, untilClass;
     if(diffMin<=0){ untilText='まもなく'; untilClass='soon0'; }
@@ -1945,13 +1929,37 @@ function renderDepBoard(){
     else { untilText=`あと${diffMin}分`; untilClass='ok'; }
     return `<div class="dep-row">
       <div class="dep-time">${r.time}</div>
-      <div style="flex:1"></div>
       <div class="dep-until ${untilClass}">${untilText}</div>
       ${i===0?'<div class="dep-next-badge">次発</div>':''}
     </div>`;
   }).join('');
+}
 
-  document.getElementById('depRefresh').textContent = fmtTime(now);
+function renderDepBoard(){
+  const dayType = isHoliday() ? 'holiday' : 'weekday';
+
+  // 発車時刻リストを両列に描画
+  const kqEl = document.getElementById('depBodyKq');
+  const jrEl = document.getElementById('depBodyJr');
+  if(kqEl) kqEl.innerHTML = buildDepColHtml('kq', dayType);
+  if(jrEl) jrEl.innerHTML = buildDepColHtml('jr', dayType);
+
+  // 運行状況バッジを遅延情報から反映
+  updateDepStatusBadge('kq');
+  updateDepStatusBadge('jr');
+
+  document.getElementById('depRefresh').textContent = fmtTime(new Date());
+}
+
+/* 鉄道遅延情報と路線名を照合してバッジを更新 */
+function updateDepStatusBadge(line){
+  const badgeEl = document.getElementById(line==='kq' ? 'depStatusKq' : 'depStatusJr');
+  if(!badgeEl) return;
+  const keys = line==='kq' ? ['京急','京浜急行'] : ['横須賀線'];
+  const delayNames = trainDelayCache.map(d=>d.name||'');
+  const hasDelay = delayNames.some(n=>keys.some(k=>n.includes(k)));
+  badgeEl.textContent = hasDelay ? '遅延あり' : '平常運転';
+  badgeEl.className = 'dep-col-status ' + (hasDelay ? 'delay' : 'ok');
 }
 
 async function loadQbHouse(){
@@ -2029,7 +2037,11 @@ async function loadTrainDelay(){
   }catch(e){
   }
   renderTrainBody(trainDelayCache);
-  document.getElementById('trainRefresh').textContent=fmtTime(new Date());
+  // 発車案内カードの運行状況バッジも更新
+  updateDepStatusBadge('kq');
+  updateDepStatusBadge('jr');
+  const trainRefreshEl=document.getElementById('trainRefresh');
+  if(trainRefreshEl) trainRefreshEl.textContent=fmtTime(new Date());
 }
 function renderTrainBody(delayed){
   const sel=getSelTrainLines();
