@@ -310,38 +310,40 @@ body{
 .weather-now-item b{color:var(--text);font-weight:600;}
 .weather-hourly{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
 .weather-hourly::-webkit-scrollbar{display:none;}
-.temp-chart-wrap{
-  position:relative;overflow-x:auto;scrollbar-width:none;
-  border-bottom:1px solid var(--border);
+/* グラフとスロット列を縦に重ねるラッパー */
+.weather-hourly-wrap{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;position:relative;}
+.weather-hourly-wrap::-webkit-scrollbar{display:none;}
+/* 気温グラフ：スロット列の上に重ねて配置 */
+.temp-chart-overlay{
+  display:block;pointer-events:none;
+  /* スロット列と横幅を同期するため同じフレックスで並ぶ */
 }
-.temp-chart-wrap::-webkit-scrollbar{display:none;}
 .temp-line-svg{
-  display:block;height:48px;
-  min-width:100%;/* 横スクロールに合わせて伸びる */
+  display:block;height:44px;width:100%;
 }
 .weather-hourly-inner{
-  display:flex;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
-  padding-bottom:4px;
+  display:flex;gap:0;padding-bottom:4px;
+  /* スクロールはラッパー側で行う */
 }
-.weather-hourly-inner::-webkit-scrollbar{display:none;}
 .weather-day-divider{
-  display:flex;align-items:center;font-size:9px;color:var(--text-dim);
-  padding:2px 4px;white-space:nowrap;writing-mode:vertical-rl;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:var(--text-dim);
+  padding:2px 3px;white-space:nowrap;writing-mode:vertical-rl;
   border-left:1px dashed var(--border);
 }
-.weather-day-summary{
-  padding:5px 0 2px;border-top:1px solid var(--border);
-}
+.weather-day-summary{padding:5px 0 2px;border-top:1px solid var(--border);}
 .weather-day-summary:first-child{border-top:none;}
 .wds-label{font-size:10px;font-weight:700;color:var(--text-sub);margin-bottom:2px;}
 .wds-stats{font-size:11px;color:var(--text-sub);display:flex;flex-wrap:wrap;gap:2px 0;}
-.hour-slot{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:48px;padding:0 2px;}
+.hour-slot{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:48px;padding:0 2px;}
 .hour-label{font-size:10px;color:var(--text-sub);font-variant-numeric:tabular-nums;}
 .hour-icon{font-size:17px;}
 .hour-temp{font-size:17px;font-weight:600;}
+.hour-wind{display:flex;flex-direction:column;align-items:center;gap:0;}
+.hour-wind-spd{font-size:9px;color:var(--text-sub);}
 .hour-rain{font-size:10px;color:var(--accent2);min-height:13px;}
 .hour-precip-bar-track{
-  width:10px;height:32px;border-radius:4px;background:var(--surface2);
+  width:10px;height:28px;border-radius:4px;background:var(--surface2);
   display:flex;align-items:flex-end;overflow:hidden;margin-top:2px;
 }
 .hour-precip-bar{
@@ -615,9 +617,13 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
 }
 .traffic-maps-link:active{background:var(--accent);border-color:var(--accent);}
 .traffic-cells{display:flex;align-items:center;gap:6px;margin-bottom:0;}
-.traffic-cell{flex:1;background:var(--surface2);border-radius:9px;padding:7px 8px;text-align:center;}
-.traffic-cell-label{font-size:9px;color:var(--text-dim);letter-spacing:0.05em;margin-bottom:3px;text-transform:uppercase;}
-.traffic-cell-val{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;}
+.traffic-cell{
+  flex:1;background:var(--surface2);border-radius:8px;
+  padding:5px 8px;
+  display:flex;align-items:baseline;justify-content:center;gap:4px;
+}
+.traffic-cell-label{font-size:10px;color:var(--text-dim);white-space:nowrap;letter-spacing:0.03em;}
+.traffic-cell-val{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;}
 .traffic-cell-unit{font-size:10px;font-weight:400;margin-left:1px;}
 .traffic-status-icon{font-size:22px;flex-shrink:0;}
 </style>
@@ -1735,7 +1741,7 @@ async function loadWeather(){
   try{
     const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}`
       +`&current=temperature_2m,relative_humidity_2m,precipitation,weathercode,windspeed_10m,winddirection_10m`
-      +`&hourly=temperature_2m,precipitation_probability,precipitation,weathercode`
+      +`&hourly=temperature_2m,precipitation_probability,precipitation,weathercode,windspeed_10m,winddirection_10m`
       +`&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max,sunrise,sunset`
       +`&timezone=Asia%2FTokyo&forecast_days=2`);
     const d=await r.json();
@@ -1766,64 +1772,67 @@ async function loadWeather(){
     }
 
     // 時間帯スロット：今日の現在時刻〜明日23時
-    // hr.time は 48要素（2日分 × 24時間）
     const slotStart = curH;
-    const slotEnd = 48; // 明日の23時まで全部
+    const slotEnd = 48;
     const slots = [];
     for(let i=slotStart; i<slotEnd; i++){
       const isToday = i < 24;
       const h = i % 24;
-      const labelH = `${String(h).padStart(2,'0')}時`;
       const dateLabel = isToday ? '' : '翌';
       const amt = hr.precipitation[i] ?? 0;
       const prp = hr.precipitation_probability[i] ?? 0;
+      const windSpeedMs = kmhToMs(hr.windspeed_10m[i] ?? 0);
+      const windRot = windDegToArrowRotation(hr.winddirection_10m[i] ?? 0);
       slots.push({
-        label: dateLabel + labelH,
+        label: dateLabel + String(h).padStart(2,'0') + '時',
         icon: WMO_ICO[hr.weathercode[i]] || '❓',
         temp: Math.round(hr.temperature_2m[i]),
-        prp, amt,
-        isTodayEnd: isToday && h === 23, // 今日と明日の境界
+        prp, amt, windSpeedMs, windRot,
+        isTodayEnd: isToday && h === 23,
       });
     }
 
     // ── 気温の線グラフ（SVG）──
+    // スロット幅48px、スロット内中心にドットを打つ
     const temps = slots.map(s => s.temp);
     const tMin = Math.min(...temps) - 2;
     const tMax = Math.max(...temps) + 2;
-    const W = slots.length * 48; // 1スロット48px幅
-    const H = 48;
-    const tx = (i) => i * 48 + 24;
-    const ty = (t) => H - ((t - tMin) / (tMax - tMin)) * H;
+    const SLOT_W = 48;
+    const W = slots.length * SLOT_W;
+    const H = 44;
+    const tx = (i) => i * SLOT_W + SLOT_W / 2;
+    const ty = (t) => H - ((t - tMin) / (tMax - tMin)) * (H - 6) - 3;
     const polyPts = slots.map((s,i) => `${tx(i)},${ty(s.temp)}`).join(' ');
 
-    // 折れ線グラフSVG
-    const svgLine = `<svg class="temp-line-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    const svgLine = `<svg class="temp-line-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="var(--danger)" stop-opacity="0.3"/>
-          <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.05"/>
+          <stop offset="0%" stop-color="#ff5a5a" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#ff5a5a" stop-opacity="0.02"/>
         </linearGradient>
       </defs>
-      <polygon points="${polyPts} ${W-24},${H} 24,${H}" fill="url(#tempGrad)"/>
-      <polyline points="${polyPts}" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linejoin="round"/>
-      ${slots.map((s,i)=>`<circle cx="${tx(i)}" cy="${ty(s.temp)}" r="2.5" fill="var(--danger)"/>`).join('')}
+      <polygon points="${polyPts} ${tx(slots.length-1)},${H} ${tx(0)},${H}" fill="url(#tempGrad)"/>
+      <polyline points="${polyPts}" fill="none" stroke="#ff5a5a" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+      ${slots.map((s,i)=>`<circle cx="${tx(i)}" cy="${ty(s.temp)}" r="2" fill="#ff5a5a"/>`).join('')}
     </svg>`;
 
-    // ── 降水棒グラフの最大値（実際に雨がある時のみ計算）──
+    // ── 降水棒グラフの最大値 ──
     const precipAmts = slots.map(s=>s.amt).filter(a=>a>0);
     const maxPrecip = precipAmts.length > 0 ? Math.max(1, ...precipAmts) : 1;
 
-    // ── スロットHTML ──
+    // ── スロットHTML（気温グラフはスロット列の上に重ねて表示）──
     let slotsHtml = '';
     slots.forEach((s, i)=>{
-      // 今日と明日の境界に区切り線
-      const divider = s.isTodayEnd ? '<div class="weather-day-divider">─ 翌日 ─</div>' : '';
-      // 0mmの時はバーを表示しない
+      const divider = s.isTodayEnd ? '<div class="weather-day-divider">翌日</div>' : '';
       const barPct = s.amt > 0 ? Math.max(8, Math.round((s.amt / maxPrecip) * 100)) : 0;
       slotsHtml += `<div class="hour-slot">
         <div class="hour-label">${s.label}</div>
         <div class="hour-icon">${s.icon}</div>
         <div class="hour-temp">${s.temp}℃</div>
+        <div class="hour-wind">
+          <span class="wind-arrow" style="transform:rotate(${s.windRot}deg);font-size:12px">↑</span>
+          <span class="hour-wind-spd">${s.windSpeedMs}</span>
+        </div>
         <div class="hour-rain">${s.prp>0?`💧${s.prp}%`:''}</div>
         <div class="hour-precip-bar-track">
           ${barPct>0?`<div class="hour-precip-bar" style="height:${barPct}%"></div>`:''}
@@ -1832,10 +1841,13 @@ async function loadWeather(){
       </div>${divider}`;
     });
 
-    // 気温グラフ + 時間スロットを合わせて表示
+    // 気温グラフはスロット列の上に位置合わせして重ねる
+    // （グラフSVGとスロット列を同じコンテナに入れ、グラフを絶対配置で重ねる）
     document.getElementById('weatherHourly').innerHTML =
-      `<div class="temp-chart-wrap">${svgLine}</div>` +
-      `<div class="weather-hourly-inner">${slotsHtml}</div>`;
+      `<div class="weather-hourly-wrap">
+        <div class="temp-chart-overlay">${svgLine}</div>
+        <div class="weather-hourly-inner">${slotsHtml}</div>
+      </div>`;
 
     // ── 日別サマリー（今日・明日） ──
     let summaryHtml = '';
