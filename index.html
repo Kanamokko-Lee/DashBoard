@@ -2058,6 +2058,33 @@ function buildDepColHtml(line, dayType){
   }).join('');
 }
 
+/* ワーカーからリアルタイムで時刻を取得してlocalStorageを更新する */
+async function loadDepBoard(){
+  const proxy = gcalProxyUrl();
+  if(!proxy){ renderDepBoard(); return; } // Worker未設定ならキャッシュ表示
+
+  const dayType = isHoliday() ? 'holiday' : 'weekday';
+  const dw = dayType === 'holiday' ? '1' : '0';
+  const store = getDepStore();
+
+  // 京急・JRを並列で取得（URLはWorker側のデフォルト or 環境変数を使用）
+  const results = await Promise.allSettled([
+    fetch(`${proxy}/keikyu-timetable?dw=${dw}`).then(r=>r.json()),
+    fetch(`${proxy}/jr-timetable?dw=${dw}`).then(r=>r.json()),
+  ]);
+
+  if(results[0].status==='fulfilled' && results[0].value?.ok){
+    if(!store.kq) store.kq = {};
+    store.kq[dayType] = results[0].value.trains;
+  }
+  if(results[1].status==='fulfilled' && results[1].value?.ok){
+    if(!store.jr) store.jr = {};
+    store.jr[dayType] = results[1].value.trains;
+  }
+  saveDepStore(store);
+  renderDepBoard();
+}
+
 function renderDepBoard(){
   const dayType = isHoliday() ? 'holiday' : 'weekday';
 
@@ -2925,9 +2952,8 @@ async function init(){
   const calPromise = skipCalendarReload ? Promise.resolve() : loadCalendar();
 
   setYcatDest(currentYcatDest);
-  renderDepBoard();
   loadQbHouse();
-  await Promise.all([calPromise,loadWeather(),loadRadar(),loadYcatStatus(),loadTrainDelay(),fetchTrafficData()]);
+  await Promise.all([calPromise,loadWeather(),loadRadar(),loadYcatStatus(),loadTrainDelay(),fetchTrafficData(),loadDepBoard()]);
   updateFooter();
 
   if(ycatRefreshTimer) clearInterval(ycatRefreshTimer);
@@ -2937,7 +2963,8 @@ async function init(){
   setInterval(fetchTrafficData, 5*60*1000);
   // 発車案内は1分ごとに更新（カウントダウン更新のため）
   if(depRefreshTimer) clearInterval(depRefreshTimer);
-  depRefreshTimer = setInterval(renderDepBoard, 60*1000);
+  depRefreshTimer = setInterval(loadDepBoard, 5*60*1000);
+  setInterval(renderDepBoard, 60*1000); // カウントダウン表示は1分ごとに更新
   setInterval(loadQbHouse, 10*60*1000);
 }
 
