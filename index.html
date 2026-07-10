@@ -543,6 +543,8 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
 }
 .dep-row:last-child{border-bottom:none;}
 .dep-time{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;flex-shrink:0;}
+.dep-dest{font-size:12px;font-weight:600;flex-shrink:0;white-space:nowrap;}
+.dep-origin-mark{font-size:10px;margin-right:2px;}
 .dep-time-block{display:flex;flex-direction:column;gap:1px;flex-shrink:0;}
 .dep-train-label{font-size:9px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px;}
 .dep-until{font-size:10px;font-weight:600;flex:1;text-align:right;flex-shrink:0;}
@@ -1991,15 +1993,15 @@ async function fetchDepTimes(line, dayType){
   }
 }
 
-// 種別ラベルから色を返す
-function getTrainTypeColor(label){
-  if(!label) return '';
-  if(/快特|快速特急/.test(label)) return '#e60012';
-  if(/特急/.test(label)) return '#e60012';
-  if(/急行/.test(label)) return '#0066cc';
-  if(/快速/.test(label)) return '#f57c00';
-  if(/普通|各停/.test(label)) return 'var(--text-dim)';
-  return 'var(--text-sub)';
+// 種別から色を返す（京急・JR共通）
+function getTrainTypeColor(type){
+  if(!type) return 'var(--text)';
+  if(/快特|快速特急/.test(type)) return '#e60012';  // 赤
+  if(/特急/.test(type)) return '#e60012';            // 赤
+  if(/急行/.test(type)) return '#0066cc';            // 青
+  if(/快速/.test(type)) return '#f57c00';            // オレンジ
+  if(/普通|各停|無印/.test(type)) return 'var(--text)'; // 黒（デフォルト）
+  return 'var(--text)';
 }
 
 /* 1つの列（京急またはJR）の発車リストHTMLを生成 */
@@ -2036,15 +2038,20 @@ function buildDepColHtml(line, dayType){
     else if(diffMin<=1){ untilText=`あと${diffMin}分`; untilClass='soon1'; }
     else if(diffMin<=3){ untilText=`あと${diffMin}分`; untilClass='soon3'; }
     else { untilText=`あと${diffMin}分`; untilClass='ok'; }
-    const color = getTrainTypeColor(r.label||'');
-    const labelHtml = r.label
-      ? `<div class="dep-train-label" style="color:${color}">${r.label}</div>`
+    // 種別色を決定（typeフィールド優先、なければlabelから判定）
+    const trainType = r.type || r.label || '';
+    const color = getTrainTypeColor(trainType);
+    // 行き先表示（destフィールド優先、なければlabelから種別を除いた部分）
+    const dest = r.dest || (r.label||'').replace(/^(普通|急行|快特|特急|快速|各停|無印)\s*/, '');
+    // 始発マーカー（JR逗子始発）
+    const originMark = r.origin ? '<span class="dep-origin-mark">●</span>' : '';
+    const destHtml = dest
+      ? `<span class="dep-dest" style="color:${color}">${originMark}${dest}</span>`
       : '';
-    return `<div class="dep-row">
-      <div class="dep-time-block">
-        <div class="dep-time">${r.time}</div>
-        ${labelHtml}
-      </div>
+    return `<div class="dep-row" style="border-left:3px solid ${color}22">
+      <div class="dep-time" style="color:${color}">${r.time}</div>
+      ${destHtml}
+      <div style="flex:1"></div>
       <div class="dep-until ${untilClass}">${untilText}</div>
       ${i===0?'<div class="dep-next-badge">次発</div>':''}
     </div>`;
