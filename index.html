@@ -308,8 +308,33 @@ body{
   transition:transform 0.3s; line-height:1;
 }
 .weather-now-item b{color:var(--text);font-weight:600;}
-.weather-hourly{display:flex;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
+.weather-hourly{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
 .weather-hourly::-webkit-scrollbar{display:none;}
+.temp-chart-wrap{
+  position:relative;overflow-x:auto;scrollbar-width:none;
+  border-bottom:1px solid var(--border);
+}
+.temp-chart-wrap::-webkit-scrollbar{display:none;}
+.temp-line-svg{
+  display:block;height:48px;
+  min-width:100%;/* 横スクロールに合わせて伸びる */
+}
+.weather-hourly-inner{
+  display:flex;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  padding-bottom:4px;
+}
+.weather-hourly-inner::-webkit-scrollbar{display:none;}
+.weather-day-divider{
+  display:flex;align-items:center;font-size:9px;color:var(--text-dim);
+  padding:2px 4px;white-space:nowrap;writing-mode:vertical-rl;
+  border-left:1px dashed var(--border);
+}
+.weather-day-summary{
+  padding:5px 0 2px;border-top:1px solid var(--border);
+}
+.weather-day-summary:first-child{border-top:none;}
+.wds-label{font-size:10px;font-weight:700;color:var(--text-sub);margin-bottom:2px;}
+.wds-stats{font-size:11px;color:var(--text-sub);display:flex;flex-wrap:wrap;gap:2px 0;}
 .hour-slot{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:48px;padding:0 2px;}
 .hour-label{font-size:10px;color:var(--text-sub);font-variant-numeric:tabular-nums;}
 .hour-icon{font-size:17px;}
@@ -324,7 +349,7 @@ body{
   border-radius:4px 4px 0 0;min-height:2px;transition:height 0.3s;
 }
 .hour-precip-amt{font-size:11px;font-weight:500;color:var(--text-sub);min-height:13px;}
-.weather-summary{margin-top:9px;display:flex;gap:8px;padding-top:9px;border-top:1px solid var(--border);flex-wrap:wrap;}
+.weather-summary{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
 .weather-stat{display:flex;flex-direction:column;gap:1px;flex:1;min-width:50px;}
 .weather-stat-label{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.07em;}
 .weather-stat-val{font-size:14px;font-weight:500;}
@@ -518,6 +543,8 @@ body.radar-fs-active{overflow:hidden;background:#0a0d12;}
 }
 .dep-row:last-child{border-bottom:none;}
 .dep-time{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;flex-shrink:0;}
+.dep-time-block{display:flex;flex-direction:column;gap:1px;flex-shrink:0;}
+.dep-train-label{font-size:9px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px;}
 .dep-until{font-size:10px;font-weight:600;flex:1;text-align:right;flex-shrink:0;}
 .dep-until.soon0{color:var(--danger);animation:blinkRed 0.8s infinite;}
 .dep-until.soon1{color:var(--danger);}
@@ -1708,7 +1735,7 @@ async function loadWeather(){
       +`&current=temperature_2m,relative_humidity_2m,precipitation,weathercode,windspeed_10m,winddirection_10m`
       +`&hourly=temperature_2m,precipitation_probability,precipitation,weathercode`
       +`&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max,sunrise,sunset`
-      +`&timezone=Asia%2FTokyo&forecast_days=1`);
+      +`&timezone=Asia%2FTokyo&forecast_days=2`);
     const d=await r.json();
     const hr=d.hourly,da=d.daily,cur=d.current,curH=new Date().getHours();
 
@@ -1736,39 +1763,106 @@ async function loadWeather(){
         </div>`;
     }
 
-    // 棒グラフの正規化基準（表示範囲内の最大降水量。最低でも2mmを基準にし、極端な比率を防ぐ）
-    const hourEnd = Math.min(curH+12,24);
-    const precipSlice = hr.precipitation.slice(curH, hourEnd);
-    const maxPrecip = Math.max(2, ...precipSlice);
-
-    let slots='';
-    for(let i=curH;i<hourEnd;i++){
-      const prp=hr.precipitation_probability[i];
-      const amt=hr.precipitation[i] ?? 0;
-      const barPct = Math.min(100, Math.round((amt / maxPrecip) * 100));
-      slots+=`<div class="hour-slot">
-        <div class="hour-label">${String(i).padStart(2,'0')}時</div>
-        <div class="hour-icon">${WMO_ICO[hr.weathercode[i]]||'❓'}</div>
-        <div class="hour-temp">${Math.round(hr.temperature_2m[i])}℃</div>
-        <div class="hour-rain">${prp>0?`💧${prp}%`:''}</div>
-        <div class="hour-precip-bar-track">
-          <div class="hour-precip-bar" style="height:${barPct}%"></div>
-        </div>
-        <div class="hour-precip-amt">${amt>0?`${amt}mm`:''}</div>
-      </div>`;
+    // 時間帯スロット：今日の現在時刻〜明日23時
+    // hr.time は 48要素（2日分 × 24時間）
+    const slotStart = curH;
+    const slotEnd = 48; // 明日の23時まで全部
+    const slots = [];
+    for(let i=slotStart; i<slotEnd; i++){
+      const isToday = i < 24;
+      const h = i % 24;
+      const labelH = `${String(h).padStart(2,'0')}時`;
+      const dateLabel = isToday ? '' : '翌';
+      const amt = hr.precipitation[i] ?? 0;
+      const prp = hr.precipitation_probability[i] ?? 0;
+      slots.push({
+        label: dateLabel + labelH,
+        icon: WMO_ICO[hr.weathercode[i]] || '❓',
+        temp: Math.round(hr.temperature_2m[i]),
+        prp, amt,
+        isTodayEnd: isToday && h === 23, // 今日と明日の境界
+      });
     }
-    document.getElementById('weatherHourly').innerHTML=slots;
-    const maxT=Math.round(da.temperature_2m_max[0]),minT=Math.round(da.temperature_2m_min[0]);
-    const rain=da.precipitation_probability_max[0],windMs=kmhToMs(da.windspeed_10m_max[0]);
-    const sunR=(da.sunrise[0]||'').slice(11,16),sunS=(da.sunset[0]||'').slice(11,16);
-    document.getElementById('weatherSummary').innerHTML=`
-      <div class="weather-stat"><div class="weather-stat-label">最高</div><div class="weather-stat-val" style="color:var(--danger)">${maxT}℃</div></div>
-      <div class="weather-stat"><div class="weather-stat-label">最低</div><div class="weather-stat-val" style="color:var(--accent)">${minT}℃</div></div>
-      <div class="weather-stat"><div class="weather-stat-label">降水確率</div><div class="weather-stat-val">${rain}%</div></div>
-      <div class="weather-stat"><div class="weather-stat-label">最大風速</div><div class="weather-stat-val">${windMs}<span style="font-size:9px">m/s</span></div></div>
-      <div class="weather-stat"><div class="weather-stat-label">日の出</div><div class="weather-stat-val" style="font-size:13px">${sunR}</div></div>
-      <div class="weather-stat"><div class="weather-stat-label">日の入</div><div class="weather-stat-val" style="font-size:13px">${sunS}</div></div>`;
-  }catch(e){document.getElementById('weatherHourly').innerHTML=`<div style="padding:14px;color:var(--text-sub);font-size:12px">天気を取得できませんでした</div>`;}
+
+    // ── 気温の線グラフ（SVG）──
+    const temps = slots.map(s => s.temp);
+    const tMin = Math.min(...temps) - 2;
+    const tMax = Math.max(...temps) + 2;
+    const W = slots.length * 48; // 1スロット48px幅
+    const H = 48;
+    const tx = (i) => i * 48 + 24;
+    const ty = (t) => H - ((t - tMin) / (tMax - tMin)) * H;
+    const polyPts = slots.map((s,i) => `${tx(i)},${ty(s.temp)}`).join(' ');
+
+    // 折れ線グラフSVG
+    const svgLine = `<svg class="temp-line-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--danger)" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.05"/>
+        </linearGradient>
+      </defs>
+      <polygon points="${polyPts} ${W-24},${H} 24,${H}" fill="url(#tempGrad)"/>
+      <polyline points="${polyPts}" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linejoin="round"/>
+      ${slots.map((s,i)=>`<circle cx="${tx(i)}" cy="${ty(s.temp)}" r="2.5" fill="var(--danger)"/>`).join('')}
+    </svg>`;
+
+    // ── 降水棒グラフの最大値（実際に雨がある時のみ計算）──
+    const precipAmts = slots.map(s=>s.amt).filter(a=>a>0);
+    const maxPrecip = precipAmts.length > 0 ? Math.max(1, ...precipAmts) : 1;
+
+    // ── スロットHTML ──
+    let slotsHtml = '';
+    slots.forEach((s, i)=>{
+      // 今日と明日の境界に区切り線
+      const divider = s.isTodayEnd ? '<div class="weather-day-divider">─ 翌日 ─</div>' : '';
+      // 0mmの時はバーを表示しない
+      const barPct = s.amt > 0 ? Math.max(8, Math.round((s.amt / maxPrecip) * 100)) : 0;
+      slotsHtml += `<div class="hour-slot">
+        <div class="hour-label">${s.label}</div>
+        <div class="hour-icon">${s.icon}</div>
+        <div class="hour-temp">${s.temp}℃</div>
+        <div class="hour-rain">${s.prp>0?`💧${s.prp}%`:''}</div>
+        <div class="hour-precip-bar-track">
+          ${barPct>0?`<div class="hour-precip-bar" style="height:${barPct}%"></div>`:''}
+        </div>
+        <div class="hour-precip-amt">${s.amt>0?`${s.amt}mm`:''}</div>
+      </div>${divider}`;
+    });
+
+    // 気温グラフ + 時間スロットを合わせて表示
+    document.getElementById('weatherHourly').innerHTML =
+      `<div class="temp-chart-wrap">${svgLine}</div>` +
+      `<div class="weather-hourly-inner">${slotsHtml}</div>`;
+
+    // ── 日別サマリー（今日・明日） ──
+    let summaryHtml = '';
+    for(let day=0; day<2; day++){
+      const label = day===0?'今日':'明日';
+      const maxT=Math.round(da.temperature_2m_max[day]);
+      const minT=Math.round(da.temperature_2m_min[day]);
+      const rain=da.precipitation_probability_max[day];
+      const windMs=kmhToMs(da.windspeed_10m_max[day]);
+      const sunR=(da.sunrise[day]||'').slice(11,16);
+      const sunS=(da.sunset[day]||'').slice(11,16);
+      const ico=WMO_ICO[da.weathercode[day]]||'';
+      summaryHtml += `
+        <div class="weather-day-summary">
+          <div class="wds-label">${label} ${ico}</div>
+          <div class="wds-stats">
+            <span style="color:var(--danger)">${maxT}℃</span>
+            <span style="color:var(--accent);margin-left:4px">${minT}℃</span>
+            <span style="margin-left:6px">💧${rain}%</span>
+            <span style="margin-left:6px">💨${windMs}m/s</span>
+            <span style="margin-left:6px">🌅${sunR}</span>
+            <span style="margin-left:4px">🌇${sunS}</span>
+          </div>
+        </div>`;
+    }
+    document.getElementById('weatherSummary').innerHTML = summaryHtml;
+  }catch(e){
+    document.getElementById('weatherHourly').innerHTML=`<div style="padding:14px;color:var(--text-sub);font-size:12px">天気を取得できませんでした</div>`;
+  }
 }
 
 let ycatRefreshTimer = null;
@@ -1883,10 +1977,12 @@ async function fetchDepTimes(line, dayType){
 
     const store = getDepStore();
     if(!store[line]) store[line] = {};
-    store[line][dayType] = data.times;
+    // trains配列（{time,label}）を保存。後方互換のためtimes配列も変換して保存
+    store[line][dayType] = data.trains || (data.times||[]).map(t=>({time:t,label:''}));
     saveDepStore(store);
     input.value = '';
-    alert(`${line==='kq'?'京急':'JR'} ${dayType==='weekday'?'平日':'土日祝'}: ${data.times.length}本 取込完了`);
+    const count = store[line][dayType].length;
+    alert(`${line==='kq'?'京急':'JR'} ${dayType==='weekday'?'平日':'土日祝'}: ${count}本 取込完了`);
     renderDepBoard();
   }catch(e){
     alert('通信エラー: ' + e.message);
@@ -1895,12 +1991,23 @@ async function fetchDepTimes(line, dayType){
   }
 }
 
+// 種別ラベルから色を返す
+function getTrainTypeColor(label){
+  if(!label) return '';
+  if(/快特|快速特急/.test(label)) return '#e60012';
+  if(/特急/.test(label)) return '#e60012';
+  if(/急行/.test(label)) return '#0066cc';
+  if(/快速/.test(label)) return '#f57c00';
+  if(/普通|各停/.test(label)) return 'var(--text-dim)';
+  return 'var(--text-sub)';
+}
+
 /* 1つの列（京急またはJR）の発車リストHTMLを生成 */
 function buildDepColHtml(line, dayType){
   const store = getDepStore();
-  const times = store[line]?.[dayType] || [];
+  const trains = store[line]?.[dayType] || [];
 
-  if(!times.length){
+  if(!trains.length){
     const href = line==='kq'
       ? 'https://norikae.keikyu.co.jp/transit/norikae/T5?USR=PC&dw=0&slCode=252-4&d=1'
       : 'https://timetables.jreast.co.jp/timetable/list0899.html';
@@ -1913,9 +2020,11 @@ function buildDepColHtml(line, dayType){
 
   const now = new Date();
   const nowMin = now.getHours()*60 + now.getMinutes();
-  const rows = times.map(t=>{
-    const [h,m] = t.split(':').map(Number);
-    return { time:t, diff: h*60+m - nowMin };
+  const rows = trains.map(t=>{
+    // 後方互換：文字列の場合は{time,label:''}に変換
+    const tr = typeof t === 'string' ? {time:t,label:''} : t;
+    const [h,m] = tr.time.split(':').map(Number);
+    return { ...tr, diff: h*60+m - nowMin };
   }).filter(r=>r.diff>=-1);
 
   if(!rows.length) return `<div style="padding:8px 12px;font-size:11px;color:var(--text-dim)">本日終了</div>`;
@@ -1927,8 +2036,15 @@ function buildDepColHtml(line, dayType){
     else if(diffMin<=1){ untilText=`あと${diffMin}分`; untilClass='soon1'; }
     else if(diffMin<=3){ untilText=`あと${diffMin}分`; untilClass='soon3'; }
     else { untilText=`あと${diffMin}分`; untilClass='ok'; }
+    const color = getTrainTypeColor(r.label||'');
+    const labelHtml = r.label
+      ? `<div class="dep-train-label" style="color:${color}">${r.label}</div>`
+      : '';
     return `<div class="dep-row">
-      <div class="dep-time">${r.time}</div>
+      <div class="dep-time-block">
+        <div class="dep-time">${r.time}</div>
+        ${labelHtml}
+      </div>
       <div class="dep-until ${untilClass}">${untilText}</div>
       ${i===0?'<div class="dep-next-badge">次発</div>':''}
     </div>`;
