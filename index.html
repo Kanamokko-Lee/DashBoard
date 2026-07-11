@@ -332,6 +332,7 @@ body{
 .hour-wind{display:flex;flex-direction:column;align-items:center;gap:1px;margin:2px 0;}
 .wind-arrow{display:inline-block;font-size:15px;font-weight:700;color:var(--accent);line-height:1;}
 .hour-wind-spd{font-size:11px;font-weight:600;color:var(--text-sub);}
+.hour-wind-unit{font-size:9px;font-weight:400;margin-left:1px;}
 .hour-rain{font-size:10px;color:var(--accent2);min-height:13px;}
 .hour-precip-amt{font-size:11px;font-weight:500;color:var(--text-sub);min-height:13px;}
 .weather-summary{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
@@ -1848,10 +1849,18 @@ async function loadWeather(){
         +'<div class="hour-icon">'+s.icon+'</div>'
         +'<div class="hour-wind">'
         +'<span class="wind-arrow" style="transform:rotate('+s.windRot+'deg)">↑</span>'
-        +'<span class="hour-wind-spd">'+s.windSpeedMs+'</span>'
+        +'<span class="hour-wind-spd">'+s.windSpeedMs+'<span class="hour-wind-unit">m/s</span></span>'
         +'</div>'
-        +'<div class="hour-rain">'+(s.prp>0?'💧'+s.prp+'%':'')+'</div>'
         +'</div>'+divider;
+    });
+
+    // 降水確率行（棒グラフSVGの下）
+    let prpRowHtml = '';
+    slots.forEach((s, i)=>{
+      const divider2 = s.isTodayEnd ? '<div class="weather-day-divider" style="visibility:hidden">翌日</div>' : '';
+      prpRowHtml += '<div class="hour-slot" style="min-width:'+SLOT_W+'px">'
+        +'<div class="hour-rain">'+(s.prp>0?'💧'+s.prp+'%':'')+'</div>'
+        +'</div>'+divider2;
     });
 
     document.getElementById('weatherHourly').innerHTML =
@@ -1859,6 +1868,7 @@ async function loadWeather(){
       +'<div class="weather-hourly-inner">'+slotsHtml+'</div>'
       +'<div class="weather-svg-row">'+svgTemp+'</div>'
       +'<div class="weather-svg-row">'+svgPrecip+'</div>'
+      +'<div class="weather-hourly-inner" style="padding-bottom:4px">'+prpRowHtml+'</div>'
       +'</div>';
 
     // ── 日別サマリー（今日・明日） ──
@@ -2077,8 +2087,7 @@ function buildDepColHtml(line, dayType){
       ${destHtml}
       <div style="flex:1"></div>
       <div class="dep-until ${untilClass}">${untilText}</div>
-      ${i===0?'<div class="dep-next-badge">次発</div>':''}
-    </div>`;
+          </div>`;
   }).join('');
 }
 
@@ -2291,12 +2300,10 @@ function renderYcatBus(){
       tomorrowDividerShown=true;
     }
     const until=x.diff<=0?'出発済':x.diff<60?`あと${x.diff}分`:`あと${Math.floor(x.diff/60)}時間${x.diff%60}分`;
-    const isNextBus = i===0 && todayBuses.length>0; // 「次発」バッジは本日分がある時のみ先頭に表示
     html+=`<div class="bus-row">
       <div class="bus-time">${x.time}</div>
       <div style="flex:1;font-size:11px;color:var(--text-sub)">${info.sub}</div>
       <div class="bus-until ${isNarita?'is-narita':''}">${until}</div>
-      ${isNextBus?`<div class="bus-next-label ${isNarita?'is-narita':''}">次発</div>`:''}
     </div>`;
   });
   html+=`</div>`;
@@ -2371,12 +2378,12 @@ async function fetchTrafficData(){
             <span style="color:var(--text-dim)">→</span>
             ${r.toIcon} <strong>${r.to}</strong>
           </span>
-          <a class="traffic-maps-link" href="${r.mapsUrl}" target="_blank" title="Googleマップで詳細確認">🗺️</a>
         </div>
         <div class="traffic-cells">
           <div class="traffic-cell"><div class="traffic-cell-label">通常</div><div class="traffic-cell-val">${normalMin}<span class="traffic-cell-unit">分</span></div></div>
           <div class="traffic-cell"><div class="traffic-cell-label">現在</div><div class="traffic-cell-val">${currentMin}<span class="traffic-cell-unit">分</span></div></div>
           <div class="traffic-cell" style="border:1px solid ${diffColor}44"><div class="traffic-cell-label">差</div><div class="traffic-cell-val" style="color:${diffColor}">${diffSign}${diff}<span class="traffic-cell-unit">分</span></div></div>
+          <a class="traffic-maps-link" href="${r.mapsUrl}" target="_blank" title="Googleマップで詳細確認">🗺️</a>
           <div class="traffic-status-icon">${icon}</div>
         </div>
       </div>`;
